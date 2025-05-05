@@ -1,0 +1,52 @@
+[project]
+name = "PyLossLandscape"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.10.15"
+dependencies = [
+    "gudhi>=3.11.0",
+    "matplotlib>=3.10.1",
+    "numpy>=1.26.4",
+    "pandas>=2.2.3",
+    "topopy>=1.0.4",
+    "torch>=2.6.0",
+    "treelib>=1.7.1",
+    "pyhessian",
+    "drawsvg>=2.4.0",
+    "coloraide>=4.6",
+    "tqdm>=4.67.1",
+]
+
+[tool.uv.sources]
+pyhessian = { workspace = true } 
+
+[tool.uv.workspace]
+members = [
+    "packages/pyhessian",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore=["E501"]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+]

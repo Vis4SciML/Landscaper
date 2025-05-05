@@ -1,0 +1,244 @@
+from itertools import product
+import torch
+import numpy as np
+from tqdm import tqdm
+
+
+# Helper functions for loss landscape computation
+def get_model_parameters(model):
+    """Get model parameters as a list of tensors."""
+    return [p.data for p in model.parameters()]
+
+
+def clone_parameters(parameters):
+    """Clone a list of parameters."""
+    return [p.clone() for p in parameters]
+
+
+def add_direction(parameters, direction):
+    """Add a direction to parameters in-place."""
+    for p, d in zip(parameters, direction):
+        p.add_(d)
+
+
+def sub_direction(parameters, direction):
+    """Subtract a direction from parameters in-place."""
+    for p, d in zip(parameters, direction):
+        p.sub_(d)
+
+
+def scale_direction(direction, scale):
+    """Scale a direction by a scalar."""
+    for d in direction:
+        d.mul_(scale)
+    return direction
+
+
+def set_parameters(model, parameters):
+    """Set model parameters from a list of tensors."""
+    for p, new_p in zip(model.parameters(), parameters):
+        p.data.copy_(new_p)
+
+
+def get_model_norm(parameters):
+    """Get L2 norm of parameters."""
+    return torch.sqrt(sum((p**2).sum() for p in parameters))
+
+
+def normalize_direction(direction, parameters, normalization="filter"):
+    """Normalize a direction."""
+    if normalization == "filter":
+        for d, p in zip(direction, parameters):
+            d.mul_(
+                torch.sqrt(
+                    torch.tensor(p.numel(), dtype=torch.float32, device=d.device)
+                )
+                / (d.norm() + 1e-10)
+            )
+    return direction
+
+
+def compute_loss_landscape(
+    model,
+    dataloader,
+    device,
+    hessian_comp,
+    loss_function,
+    top_n=10,
+    steps=41,
+    distance=1.0,
+    dim=3,
+):
+    """
+    Compute the loss landscape along the top-N eigenvector directions.
+
+    Args:
+        model: The model to analyze
+        dataloader: Dataloader for evaluation
+        device: Device to compute on
+        hessian_comp: Function that computes the hessian
+        loss_function: Function to compute the loss after a perturbation
+        top_n: Number of hessian eigenvalues to compute
+        steps: Number of steps in each dimension
+        distance: Total distance to travel in parameter space
+        dim: Number of dimensions for the loss landscape (default: 3)
+    """
+    print(f"Computing {dim}D loss landscape...")
+
+    top_eigenvalues, top_eigenvectors = hessian_comp.eigenvalues(top_n=top_n)
+
+    try:
+        coordinates = []
+        for i in range(dim):
+            coordinates.append(np.linspace(-distance, distance, steps))
+        # Get starting parameters and save original weights
+        with torch.no_grad():
+            start_point = get_model_parameters(model)
+            original_weights = clone_parameters(start_point)
+
+        # Get top-N eigenvectors as directions
+        directions = []
+        for i in range(dim):
+            if i < len(top_eigenvectors):
+                directions.append([v.clone() for v in top_eigenvectors[i]])
+            else:
+                print(
+                    f"Warning: Requested dimension {dim} exceeds available eigenvectors ({len(top_eigenvectors)}). Using random direction for dimension {i + 1}"
+                )
+                # Create a random direction if we don't have enough eigenvectors
+                random_dir = [torch.randn_like(p) for p in start_point]
+                # Make it orthogonal to previous directions (simplified Gram-Schmidt)
+                for prev_dir in directions:
+                    dot_product = sum(
+                        (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir)
+                    )
+                    for j, (d1, d2) in enumerate(zip(random_dir, prev_dir)):
+                        random_dir[j] = d1 - dot_product * d2
+                directions.append(random_dir)
+
+        # Normalize all directions
+        for i in range(dim):
+            directions[i] = normalize_direction(
+                directions[i], start_point, normalization="filter"
+            )
+
+        # Scale directions to match steps and total distance
+        model_norm = get_model_norm(start_point)
+        for i in range(dim):
+            dir_norm = get_model_norm(directions[i])
+            scale_direction(directions[i], ((model_norm * distance) / steps) / dir_norm)
+
+        # Move start point to corner (lowest point in all dimensions)
+        current_point = clone_parameters(original_weights)
+        for i in range(dim):
+            scaled_dir = clone_parameters(directions[i])
+            scale_direction(scaled_dir, steps / 2)
+            sub_direction(current_point, scaled_dir)
+            # Rescale direction vectors for stepping
+            scale_direction(directions[i], 2.0 / steps)
+
+        # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
+        loss_shape = tuple([steps] * dim)
+        loss_hypercube = np.zeros(loss_shape)
+
+        # Get a batch for loss landscape computation
+        batch = next(iter(dataloader))
+        batch = batch.to(device)
+
+        # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
+        with torch.no_grad():
+            # For very high dimensions, we'll need to be smarter about traversal
+            # Rather than recursive approach, use an iterative approach with mesh grid
+
+            # For dimensions > 5, we'll likely run out of memory with a full grid
+            if dim > 5:
+                print(
+                    f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
+                )
+                print(
+                    f"Consider reducing 'steps' parameter (currently {steps}) or using a lower dimension."
+                )
+                # For very high dimensions, we might want to do random sampling instead
+
+            # Generate grid coordinates
+
+            grid_points = list(product(range(steps), repeat=dim))
+            print(f"Computing {len(grid_points)} points in {dim}D space...")
+
+            # Batch processing for efficiency - compute multiple grid points at once
+            batch_size = 10  # Adjust based on memory constraints
+            num_batches = (len(grid_points) + batch_size - 1) // batch_size
+
+            # Initialize counters for averaging
+            loss_counts = np.zeros(loss_shape, dtype=int)
+
+            for batch_idx in tqdm(
+                range(num_batches), desc=f"Computing {dim}D landscape"
+            ):
+                batch_start = batch_idx * batch_size
+                batch_end = min((batch_idx + 1) * batch_size, len(grid_points))
+                current_batch = grid_points[batch_start:batch_end]
+
+                for grid_point in current_batch:
+                    # Create a new parameter set for this grid point
+                    point_params = clone_parameters(current_point)
+
+                    # Move to the specified grid point by adding appropriate steps in each direction
+                    for dim_idx, steps_in_dim in enumerate(grid_point):
+                        for _ in range(steps_in_dim):
+                            add_direction(point_params, directions[dim_idx])
+
+                    # Set model parameters and compute loss
+                    set_parameters(model, point_params)
+                    with torch.no_grad():
+                        loss = loss_function(model, batch)
+                        # loss = model.test_step(batch, 0, None)
+
+                    # Accumulate loss and increment counter for averaging
+                    loss_hypercube[grid_point] += loss.item()
+                    loss_counts[grid_point] += 1
+
+                # Clear GPU memory
+                if batch_idx % 5 == 0 and device == "cuda":
+                    torch.cuda.empty_cache()
+
+            # Compute averages
+            with np.errstate(divide="ignore", invalid="ignore"):
+                loss_hypercube = np.divide(
+                    loss_hypercube,
+                    loss_counts,
+                    where=loss_counts != 0,
+                    out=np.zeros_like(loss_hypercube),
+                )
+
+        # Handle extreme values in loss surface
+        loss_hypercube = np.nan_to_num(
+            loss_hypercube,
+            nan=np.nanmean(loss_hypercube),
+            posinf=np.nanmax(loss_hypercube[~np.isinf(loss_hypercube)]),
+            neginf=np.nanmin(loss_hypercube[~np.isinf(loss_hypercube)]),
+        )
+
+        # Print statistics about the loss hypercube
+        print(
+            f"Loss hypercube stats - min: {np.min(loss_hypercube)}, max: {np.max(loss_hypercube)}, mean: {np.mean(loss_hypercube)}"
+        )
+
+    except Exception as e:
+        print(f"Error during loss landscape computation: {e}")
+        import traceback
+
+        traceback.print_exc()
+    finally:
+        # Restore original weights
+        set_parameters(model, original_weights)
+
+    # Handle extreme values in loss surface
+    loss_hypercube = np.nan_to_num(
+        loss_hypercube,
+        nan=np.nanmean(loss_hypercube),
+        posinf=np.nanmax(loss_hypercube[~np.isinf(loss_hypercube)]),
+        neginf=np.nanmin(loss_hypercube[~np.isinf(loss_hypercube)]),
+    )
+
+    return top_eigenvalues, top_eigenvectors, loss_hypercube, coordinates
