@@ -50,6 +50,9 @@ class LossLandscape:
         self.super_tree = None
         self.minima_and_nodes = None
 
+    def save(self, filename):
+        np.savez(filename, loss=self.loss, coordinates=self.ranges)
+
     def show(self, **kwargs):
         if self.dims == 2:
             plot_3d_surface(self.ranges, self.loss, **kwargs)

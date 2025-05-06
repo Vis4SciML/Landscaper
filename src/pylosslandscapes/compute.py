@@ -60,7 +60,7 @@ def normalize_direction(direction, parameters, normalization="filter"):
 
 def compute_loss_landscape(
     model,
-    dataloader,
+    data,
     device,
     hessian_comp,
     loss_function,
@@ -86,7 +86,7 @@ def compute_loss_landscape(
     print(f"Computing {dim}D loss landscape...")
 
     top_eigenvalues, top_eigenvectors = hessian_comp.eigenvalues(top_n=top_n)
-
+    print(f"Top {top_n} eigenvalues: {top_eigenvalues}")
     try:
         coordinates = []
         for i in range(dim):
@@ -141,10 +141,6 @@ def compute_loss_landscape(
         loss_shape = tuple([steps] * dim)
         loss_hypercube = np.zeros(loss_shape)
 
-        # Get a batch for loss landscape computation
-        batch = next(iter(dataloader))
-        batch = batch.to(device)
-
         # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
         with torch.no_grad():
             # For very high dimensions, we'll need to be smarter about traversal
@@ -191,8 +187,7 @@ def compute_loss_landscape(
                     # Set model parameters and compute loss
                     set_parameters(model, point_params)
                     with torch.no_grad():
-                        loss = loss_function(model, batch)
-                        # loss = model.test_step(batch, 0, None)
+                        loss = loss_function(model, data)
 
                     # Accumulate loss and increment counter for averaging
                     loss_hypercube[grid_point] += loss.item()
