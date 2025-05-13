@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="300">
+<img src="assets/logo.png" width="600">
 
 ### Landscaper enables the multi-dimensional analysis of machine learning loss landscapes. 
 
