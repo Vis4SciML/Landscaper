@@ -1,4 +1,10 @@
-# PyLossLandscapes
+<div align="center">
+
+<img src="assets/logo.png" width="300">
+
+### Landscaper enables the multi-dimensional analysis of machine learning loss landscapes. 
+
+</div>
 
 ## Setup
 This package is managed by `uv`, you can find instructions on how to install it [here](https://github.com/astral-sh/uv). Once it is installed, simply run `uv venv` to setup your environment.

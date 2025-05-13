@@ -1,5 +1,5 @@
 [project]
-name = "PyLossLandscape"
+name = "Landscaper"
 version = "0.1.0"
 description = ""
 readme = "README.md"
@@ -29,6 +29,9 @@ members = [
 [tool.uv]
 package = true
 
+[tool.ruff]
+line-length = 120
+
 [tool.ruff.lint]
 select = [
     # pycodestyle
@@ -50,3 +53,6 @@ ignore=["E501"]
 dev = [
     "jupyter>=1.1.1",
 ]
+
+[tool.ruff.pydocstyle]
+convention = "google"
