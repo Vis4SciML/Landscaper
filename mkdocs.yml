@@ -1,0 +1,88 @@
+site_name: Landscaper
+
+repo_url: https://github.com/Vis4SciML/Landscaper
+
+# Add exclude_docs to ignore the script file
+exclude_docs: |
+  scripts/gen_index.py
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  features:
+    - search.suggest
+    - search.highlight
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.path
+    - navigation.top
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+  logo: assets/logo-3.png
+  favicon: assets/logo-3.png
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+
+extra:
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+
+plugins:
+  - search
+  - gen-files: # Enabled and configured gen-files
+      scripts:
+      # - docs/scripts/gen_ref_pages.py # This line remains commented as in your original file
+      - docs/scripts/gen_index.py    # Script to link README.md to index.md
+  # - literate-nav:
+      # nav_file: SUMMARY.md
+  - section-index
+  - mkdocstrings
+  - mkdocs-jupyter
+
+
+nav:
+    - Home: index.md
+
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - abbr

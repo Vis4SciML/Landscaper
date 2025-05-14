@@ -1,0 +1,18 @@
+{
+    "cSpell.words": [
+        "coloraide",
+        "drawsvg",
+        "gudhi",
+        "isort",
+        "matplotlib",
+        "mkdocs",
+        "numpy",
+        "pycodestyle",
+        "pydocstyle",
+        "Pyflakes",
+        "pyhessian",
+        "pyupgrade",
+        "topopy",
+        "treelib"
+    ]
+}
