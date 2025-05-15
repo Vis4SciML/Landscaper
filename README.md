@@ -14,14 +14,14 @@
 - **Quantification**: Applies advanced metrics, including a novel topological data analysis (TDA) based smoothness metric, enabling new insights into model behavior.
 - **Visualization**: Offers intuitive tools to visualize and interpret loss landscapes, providing actionable insights beyond traditional performance metrics.
 
-By uniting these aspects, Landscaper empowers users to gain a deeper, more holistic understanding of their model's behavior. More information can be found in the [documentation](https://Vis4SciML.github.io/landscaper) or in the [paper](add link to paper).
+By uniting these aspects, Landscaper empowers users to gain a deeper, more holistic understanding of their model's behavior. More information can be found in the [documentation] or in the [paper].
 
 ## Quick Start
 
-Check out the [quick start guide](https://Vis4SciML.github.io/landscaper/quick-start.md) for a step-by-step introduction to using Landscaper.
+Check out the [quick start guide] for a step-by-step introduction to using Landscaper.
 
 ## Documentation
-The full documentation for Landscaper is available at [https://Vis4SciML.github.io/landscaper](https://Vis4SciML.github.io/landscaper). It includes detailed instructions on installation, usage, and examples.
+The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples.
 
 ## Installation
 To install Landscaper, you can use pip. The package is available on PyPI and can be installed with the following command:
@@ -35,9 +35,9 @@ If you use Landscaper in your research, please consider citing it. You can use t
 
 ```
 @article{CITE_KEY,
-  title = {Understanding 3D GNN Loss Landscapes through Topological Analysis: Insights from Olefin Hydroformylation},
-  author = {Chen, Jiaqing and Hadler, Nicholas and Xie, Tiankai and Hnatyshyn, Rostyslav and Geniesse, Caleb and Perciano, Talita and Mahoney, Micheal W., and Hartwig, John F., and Maciejewski, Ross and Weber, Gunther H.},
-  year = {2025},
+  title = {},
+  author = {},
+  year = {},
   month = {},
   journal = {},
   volume = {},
