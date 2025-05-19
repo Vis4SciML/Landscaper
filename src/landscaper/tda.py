@@ -1,263 +1,148 @@
-# Standard library imports
-import random
+# can be renamed to tda.py later, keeping it as math for now for compatibility purposes
+
+from typing import Literal
 
 import gudhi as gd
-import matplotlib.pyplot as plt
 import nglpy as ngl
-
-# Third-party imports
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import topopy as tp
-import torch
-from treelib import Tree
+
+from .landscape import LossLandscape
 
 
-class JointTree:
-    """Class to store and represent the joint tree."""
+def compute_bottleneck_distance(l1: LossLandscape, l2: LossLandscape) -> float:
+    """Computes the [bottleneck distance](https://mtsch.github.io/PersistenceDiagrams.jl/v0.3/generated/distances/) between two loss landscapes by first computing their persistence diagrams.
 
-    def __init__(self):
-        self.nodes = {}  # {id: (x, y, function value)}
-        self.sub_edges = []  # Sublevel tree edges (normal function)
-        self.super_edges = []  # Superlevel tree edges (negated function)
+    Args:
+        l1 (LossLandscape): First loss landscape.
+        l2 (LossLandscape): Second loss landscape.
 
-    def add_node(self, node_id, coords, f_value):
-        self.nodes[node_id] = (coords, f_value)
+    Returns:
+        A float representing the bottleneck distance between the two landscapes.
+    """
+    """"""
+    p1 = l1.get_persistence()
+    p2 = l2.get_persistence()
 
-    def add_sub_edge(self, node1, node2):
-        self.sub_edges.append((node1, node2))
-
-    def add_super_edge(self, node1, node2):
-        self.super_edges.append((node1, node2))
-
-    def get_tree(self):
-        """Returns a dictionary representation of the joint tree."""
-        return {
-            "nodes": self.nodes,
-            "sub_edges": self.sub_edges,
-            "super_edges": self.super_edges,
-        }
+    return bottleneck_distance(list(p1.values()), list(p2.values))
 
 
-class TDAUtils:
-    """A utility class for Topological Data Analysis operations."""
+def bottleneck_distance(p1: npt.ArrayLike, p2: npt.ArrayLike) -> float:
+    """
+    Calculates the bottleneck distance between two persistence diagrams.
+        Args:
+            persistence1 (list[float]): Persistence diagram values.
+            persistence2 (list[float]): Persistence diagram values.
 
-    def __init__(self, device="cuda" if torch.cuda.is_available() else "cpu"):
-        """Initialize TDAUtils with device configuration."""
-        self.device = device
-        self.has_cuda = torch.cuda.is_available()
-        self._set_random_seeds()
+        Returns:
+            A float representing the bottleneck distance between the two diagrams.
+    """
+    ppd1 = [(0, val) for val in p1]
+    ppd2 = [(0, val) for val in p2]
+    return gd.bottleneck_distance(ppd1, ppd2)
 
-    def _set_random_seeds(self):
-        """Set random seeds for reproducibility."""
-        torch.manual_seed(0)
-        torch.use_deterministic_algorithms(True)
-        np.random.seed(0)
-        random.seed(0)
 
-    @staticmethod
-    def minima_and_nodes(tree_dict):
-        """Returns a dictionary with the leaf nodes as keys and the minima as values."""
-        # Find leaf nodes (nodes that only appear as the second node in edges)
-        edges = tree_dict["sub_edges"] + tree_dict["super_edges"]
-        leaf_nodes = set()
-        for edge in edges:
-            if edge[1] not in leaf_nodes:
-                leaf_nodes.add(edge[1])
-            elif edge[0] in leaf_nodes:
-                leaf_nodes.remove(edge[0])
+def get_persistence_dict(msc: tp.MorseSmaleComplex):
+    """Returns the persistence of the given Morse-Smale complex as a dictionary.
 
-        # Create dictionary of leaf nodes and their function values
-        sorted_tree = {leaf: tree_dict["nodes"][leaf][1] for leaf in leaf_nodes}
-        return dict(sorted(sorted_tree.items(), key=lambda item: item[1]))
+    Args:
+        msc (tp.MorseSmaleComplex): A Morse-Smale complex from [Topopy](https://github.com/maljovec/topopy).
 
-    @staticmethod
-    def minima_list(tree):
-        """Returns a list of the minima of the tree."""
-        return [tree.get_y(leaf)[0] for leaf in tree.leaves]
+    Returns:
+        The values of the Morse-Smale Complex as a dictionary of nodes to persistence values.
+    """
+    """"""
+    return {key: msc.get_merge_sequence()[key][0] for key in msc.get_merge_sequence()}
 
-    @staticmethod
-    def leaf_nodes(tree):
-        """Returns a list of the leaf nodes of the tree."""
-        return [leaf for leaf in tree.leaves]
 
-    @staticmethod
-    def get_value(tree_dict, index):
-        """Returns the value of the leaf node at the specified index."""
-        list_vals = list(tree_dict.values())
-        return list_vals[index]
+def merge_tree(
+    loss: npt.ArrayLike,
+    coords: npt.ArrayLike,
+    graph: ngl.nglGraph,
+    direction: Literal[-1, 1] = 1,
+) -> tp.MergeTree:
+    """Helper function used to generate a merge tree for a loss landscape.
 
-    @staticmethod
-    def minima_variance(tree_list):
-        """Calculates the variance of minima across a list of trees."""
-        minima_list = []
-        for tree in tree_list:
-            if len(tree) == 1:
-                minima_list.append(list(tree.values())[0])
-            else:
-                minima_list.append(np.mean(list(tree.values())))
-        return np.var(minima_list)
+    Args:
+        loss (np.ArrayLike): Function values for each point in the space.
+        coords (np.ArrayLike): N-dimensional array of ranges for each dimension in the space.
+        graph (ngl.nglGraph): nglpy graph of the space (usually filled out by topopy).
+        direction (Literal[-1,1]): The direction to generate a merge tree for. -1 generates a merge tree for maxima, while the default value (1) is for minima.
 
-    @staticmethod
-    def get_persistence(msc):
-        """Returns the persistence of the tree as a list."""
-        return [msc.get_merge_sequence()[key][0] for key in msc.get_merge_sequence()]
+    Returns:
+        Merge tree for the space.
+    """
+    loss_flat = loss.flatten()
+    t = tp.MergeTree(graph=graph)
+    t.build(np.array(coords), direction * loss_flat)
+    return t
 
-    @staticmethod
-    def get_persistence_dict(msc):
-        """Returns the persistence of the tree as a dictionary."""
-        return {
-            key: msc.get_merge_sequence()[key][0] for key in msc.get_merge_sequence()
-        }
 
-    @staticmethod
-    def bottleneck_distance(persistence1, persistence2):
-        """Calculates the bottleneck distance between two persistence diagrams."""
-        ppd1 = [(0, val) for val in persistence1]
-        ppd2 = [(0, val) for val in persistence2]
-        return gd.bottleneck_distance(ppd1, ppd2)
+def topological_index(msc: tp.MorseSmaleComplex, idx: int) -> Literal[0, 1, 2]:
+    """Gets the topological index of a given point.
 
-    @staticmethod
-    def build_tree_structure(merge_tree_dict):
-        """Builds a tree structure from a merge tree dictionary."""
-        tree = Tree()
+    Args:
+        msc (tp.MorseSmaleComplex): The Morse-Smale complex that represents the space being analyzed.
+        idx (int): The index of the point to get a topological index for.
 
-        # Get nodes and their values
-        nodes = merge_tree_dict["nodes"]
+    Returns:
+        Either 0, 1, or 2. This indicates that the point is either a minima (0), saddle point (1) or a maxima (2).
+    """
+    c = msc.get_classification(idx)
+    if c == "minimum":
+        return 0
+    elif c == "regular":
+        return 1
+    else:
+        return 2
 
-        # Find root node (node with highest function value)
-        root_node = max(nodes.items(), key=lambda x: x[1])[0]
-        tree.create_node(tag=f"Root: {root_node}", identifier=root_node)
 
-        # Add branch nodes (nodes that appear in edges but aren't leaves)
-        edges = merge_tree_dict["sub_edges"] + merge_tree_dict["super_edges"]
-        branch_nodes = set()
-        leaf_nodes = set()
+def extract_mergetree(
+    msc: tp.MorseSmaleComplex, mt: tp.MergeTree, vals: npt.ArrayLike
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Converts a merge tree into a representation that can be used to generate a topological profile.
 
-        # First pass: identify branch and leaf nodes
-        for edge in edges:
-            for node in edge:
-                if node not in branch_nodes and node not in leaf_nodes:
-                    branch_nodes.add(node)
-                elif node in leaf_nodes:
-                    branch_nodes.add(node)
-                    leaf_nodes.remove(node)
+    Args:
+        msc (tp.MorseSmaleComplex): Morse-Smale representation of the space.
+        mt (tp.MergeTree): Merge tree of the space.
+        vals (npt.ArrayLike): Function values of the space.
 
-        # Add branch nodes to tree
-        for branch in branch_nodes:
-            if branch != root_node:
-                tree.create_node(
-                    tag=f"Branch: {branch}", identifier=branch, parent=root_node
-                )
+    Returns:
+        Tuple of dataframes for profile generation.
+    """
+    fv = vals.flatten()
+    seg = mt.augmentedEdges
+    segmentation = np.zeros((len(fv), 2))
 
-        # Add leaf nodes to tree
-        for leaf in leaf_nodes:
-            # Find parent (node connected by edge)
-            for edge in edges:
-                if leaf in edge:
-                    parent = edge[0] if edge[1] == leaf else edge[1]
-                    break
-            tree.create_node(tag=f"Leaf: {leaf}", identifier=leaf, parent=parent)
+    e_to_p = {e: i for i, e in enumerate(list(mt.augmentedEdges.keys()))}
 
-        return tree
+    for e, idxes in seg.items():
+        for idx in idxes:
+            segmentation[idx] = [fv[idx], e_to_p[e]]
+    s_df = pd.DataFrame(np.array(segmentation), columns=["Loss", "SegmentationId"])
 
-    @staticmethod
-    def plot_persistence_barcode(msc):
-        """Plots the persistence barcode for a Morse-Smale complex."""
-        node_list = [
-            str(node) for node in list(TDAUtils.get_persistence_dict(msc).keys())
-        ]
-        persistence_list = list(TDAUtils.get_persistence_dict(msc).values())
-        barh = plt.barh(node_list, persistence_list)
-        plt.xlabel("Persistence")
-        plt.ylabel("Node")
-        plt.title("Node vs Persistence")
-        # plt.bar_label(barh)
-        plt.show()
+    s_df = s_df.astype({"SegmentationId": np.int16})
 
-    def compute_merge_trees(self, loss_matrices):
-        """Computes merge trees and manually constructs the joint tree."""
-        trees = {}
-        x, y = loss_matrices[0].shape
-        coords = [[float(xx), float(yy)] for yy in range(y) for xx in range(x)]
+    mergeInfo = []
+    for nID, val in mt.nodes.items():
+        mergeInfo.append([nID, val, topological_index(msc, nID)])
 
-        for i in range(len(loss_matrices)):
-            loss_flat = loss_matrices[i].flatten()
-            graph = ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0)
+    midf = pd.DataFrame(
+        np.array(mergeInfo), columns=["NodeId", "Scalar", "CriticalType"]
+    )
+    midf = midf.astype({"NodeId": np.int16, "CriticalType": np.uint8})
+    midf = midf.sort_values(by="Scalar")
 
-            # Compute Sublevel Set Merge Tree
-            sub_tree = tp.MergeTree(graph=graph)
-            sub_tree.build(np.array(coords), loss_flat)
+    edgeInfo = []
+    for e in mt.augmentedEdges:
+        n1, n2 = e
+        segID = e_to_p[e]
+        edgeInfo.append([segID, n2, n1])
 
-            # Compute Superlevel Set Merge Tree (negating function values)
-            super_tree = tp.MergeTree(graph=graph)
-            super_tree.build(np.array(coords), -loss_flat)
+    eidf = pd.DataFrame(
+        np.array(edgeInfo), columns=["SegmentationId", "upNodeId", "downNodeId"]
+    )
 
-            # Construct the Joint Tree
-            joint_tree = JointTree()
-
-            # Add nodes from both trees
-            # Get all unique nodes from both trees
-            all_nodes = set()
-            for node in sub_tree.nodes:
-                all_nodes.add(node)
-            for node in super_tree.nodes:
-                all_nodes.add(node)
-
-            # Add nodes with their coordinates and function values
-            for node_id in all_nodes:
-                joint_tree.add_node(node_id, coords[node_id], loss_flat[node_id])
-
-            # Add edges from both trees
-            for edge in sub_tree.edges:
-                joint_tree.add_sub_edge(edge[0], edge[1])
-
-            for edge in super_tree.edges:
-                joint_tree.add_super_edge(edge[0], edge[1])
-
-            trees[i] = joint_tree.get_tree()  # Store as a dictionary
-
-        return trees
-
-    def compute_ms_complexes(self, loss_matrices):
-        """Computes Morse-Smale complexes for a list of loss matrices."""
-        ms_complexes = {}
-        x, y = loss_matrices[0].shape
-        coords = [[float(xx), float(yy)] for yy in range(y) for xx in range(x)]
-
-        graph = ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0)
-        for i in range(len(loss_matrices)):
-            ms_complex = tp.MorseSmaleComplex(
-                graph=graph, gradient="steepest", normalization="feature"
-            )
-            ms_complex.build(np.array(coords), loss_matrices[i].flatten())
-            ms_complexes[i] = ms_complex
-
-        return ms_complexes
-
-    def compute_bottleneck_distance(self, loss_matrices, ms_complexes, trees):
-        """Computes the bottleneck distance between two loss matrices."""
-        persistence = {}
-        # for i in range(10):
-        for i in range(len(loss_matrices)):
-            persistence[i] = self.get_persistence(ms_complexes[i])
-        print("persistence: ", persistence)
-
-        # compute the variance between the minima of the top 2 eigenvectors with all other eigenvectors
-        variances = {}
-        # for i in range(10):
-        for i in range(0, len(loss_matrices)):
-            variances[i] = self.minima_variance(
-                [self.minima_and_nodes(trees[0]), self.minima_and_nodes(trees[i])]
-            )
-        print("variances: ", variances)
-
-        # compute the bottleneck distance between the persistence diagrams of the top 2 eigenvectors with all other eigenvectors
-        bottlenecks = {}
-
-        for i in range(len(loss_matrices)):
-            bottlenecks[i] = self.bottleneck_distance(persistence[0], persistence[i])
-        print("bottlenecks: ", bottlenecks)
-        df = pd.DataFrame({"variances": variances, "bottlenecks": bottlenecks})
-
-        return df
+    return s_df, midf, eidf

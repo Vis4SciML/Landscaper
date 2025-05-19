@@ -1,17 +1,22 @@
+import drawsvg as dw
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+import topopy as tp
+from coloraide import Color
 from matplotlib.colors import LogNorm
 
-import drawsvg as dw
-
-from .math import get_persistence_dict
-import sys
-
-from coloraide import Color
-import numpy as np
+from .tda import get_persistence_dict
+from .utils import Number
 
 
-def persistence_barcode(msc):
-    """Plots the persistence barcode for a Morse-Smale complex."""
+def persistence_barcode(msc: tp.MorseSmaleComplex):
+    """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode)  for a Morse-Smale complex.
+
+    Args:
+        msc (tp.MorseSmaleComplex): A Morse-Smale complex.
+    """
+
     node_list = [str(node) for node in list(get_persistence_dict(msc).keys())]
     persistence_list = list(get_persistence_dict(msc).values())
     plt.barh(node_list, persistence_list)
@@ -21,13 +26,34 @@ def persistence_barcode(msc):
     plt.show()
 
 
-def linearScale(min_val, max_val, new_min, new_max):
+def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number):
+    """Creates a linear scale that maps [min_val, max_val] -> [new_min, new_max]; similar to d3's `linearScale`.
+
+    Args:
+        min_val (int | float): Current min value.
+        max_val (int | float): Current max value.
+        new_min (int | float): Desired min value.
+        new_max (int | float): Desired max value.
+
+    Returns:
+        A function to convert values from the old range to the new one.
+    """
     return lambda x: (new_max - new_min) / (max_val - min_val) * (x - max_val) + new_max
 
 
-def plot_topology_profile(
+def topology_profile(
     data, y_min=None, y_max=None, output_path=None, size=800, margin=15
 ):
+    """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
+
+    Args:
+        data (tuple[pd.DataFrame, pd.DataFrame, pd.Dataframe]): The merge tree data.
+        y_min (Union[float, None]): Optional minimum y value for the drawing.
+        y_max (Union[float, None]): Optional maximum y value for the drawing.
+        output_path (Union[float, str]): Optional path to save the drawing to.
+        size (int): Size in pixels of the resulting drawing.
+        margin (int): Size of the margins in pixels.
+    """
     # TODO: validate profile data
     width = size
     height = size
@@ -144,8 +170,20 @@ def plot_topology_profile(
     """
 
 
-def plot_contour(coordinates, loss):
-    fig = plt.figure(figsize=(10, 8))
+def contour(
+    coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)
+):
+    """Draws a contour plot from the provided coordinates and values.
+
+    Args:
+        coordinates (npt.ArrayLike): n-dimensional coordinates.
+        values (npt.ArrayLike): Value for each coordinate.
+        figsize (tuple[int,int]): Size of the figure.
+
+    Raises:
+        ValueError: Raised if rendering fails.
+    """
+    fig = plt.figure(figsize=figsize)
     ax1 = fig.add_subplot(111)
     X, Y = np.meshgrid(coordinates[0], coordinates[1])
 
@@ -218,7 +256,16 @@ def plot_contour(coordinates, loss):
     ax1.axis("equal")
 
 
-def plot_3d_surface(coords, loss, figsize=(12, 8)):
+def surface_3d(
+    coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)
+):
+    """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
+
+    Args:
+        coords (npt.ArrayLike): 2-D coordinates.
+        loss (npt.ArrayLike): Values for the coordinates.
+        figsize (tuple[int,int]): Size of the figure.
+    """
     # Create 3D surface plot
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")

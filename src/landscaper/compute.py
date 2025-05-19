@@ -1,7 +1,13 @@
+from collections.abc import Callable
 from itertools import product
-import torch
+
 import numpy as np
+import numpy.typing as npt
+import torch
+from pyhessian.hessian import PyHessian
 from tqdm import tqdm
+
+from .utils import DeviceStr
 
 
 # Helper functions for loss landscape computation
@@ -17,13 +23,13 @@ def clone_parameters(parameters):
 
 def add_direction(parameters, direction):
     """Add a direction to parameters in-place."""
-    for p, d in zip(parameters, direction):
+    for p, d in zip(parameters, direction, strict=False):
         p.add_(d)
 
 
 def sub_direction(parameters, direction):
     """Subtract a direction from parameters in-place."""
-    for p, d in zip(parameters, direction):
+    for p, d in zip(parameters, direction, strict=False):
         p.sub_(d)
 
 
@@ -36,7 +42,7 @@ def scale_direction(direction, scale):
 
 def set_parameters(model, parameters):
     """Set model parameters from a list of tensors."""
-    for p, new_p in zip(model.parameters(), parameters):
+    for p, new_p in zip(model.parameters(), parameters, strict=False):
         p.data.copy_(new_p)
 
 
@@ -45,52 +51,48 @@ def get_model_norm(parameters):
     return torch.sqrt(sum((p**2).sum() for p in parameters))
 
 
-def normalize_direction(direction, parameters, normalization="filter"):
+def normalize_direction(direction, parameters):
     """Normalize a direction."""
-    if normalization == "filter":
-        for d, p in zip(direction, parameters):
-            d.mul_(
-                torch.sqrt(
-                    torch.tensor(p.numel(), dtype=torch.float32, device=d.device)
-                )
-                / (d.norm() + 1e-10)
-            )
+    for d, p in zip(direction, parameters, strict=False):
+        d.mul_(
+            torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device))
+            / (d.norm() + 1e-10)
+        )
     return direction
 
 
 def compute_loss_landscape(
-    model,
-    data,
-    device,
-    hessian_comp,
-    loss_function,
-    top_n=10,
+    model: torch.nn.Module,
+    data: npt.ArrayLike,
+    hessian_comp: PyHessian,
+    loss_function: Callable[[torch.nn.Module, npt.ArrayLike], float],
+    top_n: int = 10,
     steps=41,
-    distance=1.0,
-    dim=3,
+    distance: float = 1.0,
+    dim: int = 3,
+    batch_size: int = 10,
+    device: DeviceStr = "cuda",
 ):
     """
-    Compute the loss landscape along the top-N eigenvector directions.
+    Computes the loss landscape along the top-N eigenvector directions.
 
     Args:
-        model: The model to analyze
-        dataloader: Dataloader for evaluation
-        device: Device to compute on
-        hessian_comp: Function that computes the hessian
-        loss_function: Function to compute the loss after a perturbation
-        top_n: Number of hessian eigenvalues to compute
-        steps: Number of steps in each dimension
-        distance: Total distance to travel in parameter space
-        dim: Number of dimensions for the loss landscape (default: 3)
+        model (torch.nn.Module): The model to analyze.
+        data (npt.ArrayLike): Data that will be used to evaluate the loss function for each point on the landscape.
+        hessian_comp (PyHessian): PyHessian instance used for hessian computation.
+        loss_function (Callable[[torch.nn.Module, npt.ArrayLike], float]): Loss function for the model. Should take the model and data as input and return a float loss value.
+        top_n (int): Number of hessian eigenvalues to compute.
+        steps (int): Number of steps in each dimension.
+        distance (float): Total distance to travel in parameter space.
+        dim (int): Number of dimensions for the loss landscape (default: 3)
+        batch_size (int): Batch size used to compute each point on landscape.
+        device (Literal["cuda", "cpu"]): Device used to compute landscape.
     """
-    print(f"Computing {dim}D loss landscape...")
-
     top_eigenvalues, top_eigenvectors = hessian_comp.eigenvalues(top_n=top_n)
     print(f"Top {top_n} eigenvalues: {top_eigenvalues}")
     try:
-        coordinates = []
-        for i in range(dim):
-            coordinates.append(np.linspace(-distance, distance, steps))
+        coordinates = [np.linspace(-distance, distance, steps) for _ in dim]
+
         # Get starting parameters and save original weights
         with torch.no_grad():
             start_point = get_model_parameters(model)
@@ -110,17 +112,19 @@ def compute_loss_landscape(
                 # Make it orthogonal to previous directions (simplified Gram-Schmidt)
                 for prev_dir in directions:
                     dot_product = sum(
-                        (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir)
+                        (d1 * d2).sum()
+                        for d1, d2 in zip(random_dir, prev_dir, strict=False)
                     )
-                    for j, (d1, d2) in enumerate(zip(random_dir, prev_dir)):
+
+                    for j, (d1, d2) in enumerate(
+                        zip(random_dir, prev_dir, strict=False)
+                    ):
                         random_dir[j] = d1 - dot_product * d2
                 directions.append(random_dir)
 
         # Normalize all directions
         for i in range(dim):
-            directions[i] = normalize_direction(
-                directions[i], start_point, normalization="filter"
-            )
+            directions[i] = normalize_direction(directions[i], start_point)
 
         # Scale directions to match steps and total distance
         model_norm = get_model_norm(start_point)
@@ -152,7 +156,7 @@ def compute_loss_landscape(
                     f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
                 )
                 print(
-                    f"Consider reducing 'steps' parameter (currently {steps}) or using a lower dimension."
+                    f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
                 )
                 # For very high dimensions, we might want to do random sampling instead
 
@@ -162,7 +166,6 @@ def compute_loss_landscape(
             print(f"Computing {len(grid_points)} points in {dim}D space...")
 
             # Batch processing for efficiency - compute multiple grid points at once
-            batch_size = 10  # Adjust based on memory constraints
             num_batches = (len(grid_points) + batch_size - 1) // batch_size
 
             # Initialize counters for averaging
@@ -220,7 +223,7 @@ def compute_loss_landscape(
         )
 
     except Exception as e:
-        print(f"Error during loss landscape computation: {e}")
+        print(f"Error during loss landscape computation: {e}.")
         import traceback
 
         traceback.print_exc()

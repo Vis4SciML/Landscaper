@@ -1,5 +1,13 @@
+"""
+Todo:
+    - Use https://github.com/unionai-oss/pandera to validate dataframes
+    - Use treelib to construct tree, clean up code overall.
+"""
+
+from collections import defaultdict, deque
+
 import pandas as pd
-from collections import deque, defaultdict
+
 from .utils import validate_dataframe
 
 
@@ -23,7 +31,7 @@ def dfs(root):
         dfs(child)
 
 
-def construct_nodes(df):
+def construct_nodes(df: pd.DataFrame):
     validate_dataframe(df, ["NodeId", "Scalar", "CriticalType"], "mergedf")
 
     nodes = {}
@@ -44,7 +52,7 @@ def construct_nodes(df):
 
 
 def group_segmentations(df):
-    """segmentation_id -> list of loss values
+    """Groups points together based on how the Morse-Smale complex segmented them.
 
     Args:
         df: Segmentation dataframe, [Loss: np.float,
@@ -65,7 +73,7 @@ def group_segmentations(df):
     return grouped_segmentation
 
 
-def construct_tree(df, nodes, gs, root_id):
+def construct_tree(df: pd.DataFrame, nodes, gs, root_id):
     validate_dataframe(df, ["upNodeId", "downNodeId", "SegmentationId"], "edgedf")
 
     # node_id -> TreeNode
