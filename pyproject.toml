@@ -2,12 +2,7 @@
 name = "Landscaper"
 version = "0.1.0"
 description = "A comprehensive Python framework designed for exploring the loss landscapes of deep learning models."
-authors = [
-    {name = "Jiaqing Chen", email = "jchen501@asu.edu"},
-    {name = "Tiankai Xie", email = "txie21@asu.edu"},
-    {name = "Nicholas Hadler", email = "nhadler@berkeley.edu"},
-    {name = "Rostyslav Hnatyshyn", email = "rhnatysh@asu.edu"}
-]
+authors = []
 
 readme = "README.md"
 requires-python = ">=3.10.15"
@@ -28,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 docs = [
     "jupyter>=1.1.1",
+    "mkdocs-exporter>=6.2.0",
     "mkdocs-gen-files>=0.5.0",
     "mkdocs-jupyter>=0.25.1",
     "mkdocs-literate-nav>=0.6.2",
