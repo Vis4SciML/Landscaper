@@ -160,8 +160,8 @@ class LossLandscape:
         mt = self.get_sublevel_tree()
         ti = self.get_topological_indices()
 
-        if len(mt.branches == 0):
-            return 0
+        if len(mt.branches) == 0:
+            return 0.0
 
         # branch persistence
         bp = []
