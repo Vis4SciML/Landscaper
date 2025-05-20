@@ -1,6 +1,6 @@
 site_name: Landscaper
 
-repo_url: https://github.com/Vis4SciML/Landscaper
+# repo_url: https://github.com/Vis4SciML/Landscaper
 
 # Add exclude_docs to ignore the script file
 exclude_docs: |
