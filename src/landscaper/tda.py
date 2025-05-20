@@ -3,6 +3,7 @@
 from typing import Literal
 
 import gudhi as gd
+import networkx as nx
 import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
@@ -127,3 +128,19 @@ def extract_mergetree(
     )
 
     return s_df, midf, eidf
+
+
+def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
+    """Converts a Topopy MergeTree to a networkx representation.
+
+    Args:
+        mt (tp.MergeTree)
+
+    Returns:
+       A networkx Graph representation of the merge tree. Can be used for visualization and analysis.
+    """
+    g = nx.Graph()
+    for n, v in mt.nodes.items():
+        g.add_node(n, value=v)
+    g.add_edges_from(list(mt.edges))
+    return g

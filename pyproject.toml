@@ -74,6 +74,10 @@ ignore=["E501"]
 dev = [
     "jupyter>=1.1.1",
 ]
+examples = [
+    "torch-geometric>=2.6.1",
+    "torchvision>=0.22.0",
+]
 
 [tool.ruff.pydocstyle]
 convention = "google"
