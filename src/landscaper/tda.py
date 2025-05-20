@@ -9,25 +9,6 @@ import numpy.typing as npt
 import pandas as pd
 import topopy as tp
 
-from .landscape import LossLandscape
-
-
-def compute_bottleneck_distance(l1: LossLandscape, l2: LossLandscape) -> float:
-    """Computes the [bottleneck distance](https://mtsch.github.io/PersistenceDiagrams.jl/v0.3/generated/distances/) between two loss landscapes by first computing their persistence diagrams.
-
-    Args:
-        l1 (LossLandscape): First loss landscape.
-        l2 (LossLandscape): Second loss landscape.
-
-    Returns:
-        A float representing the bottleneck distance between the two landscapes.
-    """
-    """"""
-    p1 = l1.get_persistence()
-    p2 = l2.get_persistence()
-
-    return bottleneck_distance(list(p1.values()), list(p2.values))
-
 
 def bottleneck_distance(p1: npt.ArrayLike, p2: npt.ArrayLike) -> float:
     """
@@ -60,7 +41,7 @@ def get_persistence_dict(msc: tp.MorseSmaleComplex):
 def merge_tree(
     loss: npt.ArrayLike,
     coords: npt.ArrayLike,
-    graph: ngl.nglGraph,
+    graph: ngl.EmptyRegionGraph,
     direction: Literal[-1, 1] = 1,
 ) -> tp.MergeTree:
     """Helper function used to generate a merge tree for a loss landscape.

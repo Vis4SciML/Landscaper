@@ -4,7 +4,7 @@ import numpy.typing as npt
 import topopy as tp
 
 from .compute import compute_loss_landscape
-from .plots import persistence_barcode, surface_3d, topology_profile
+from .plots import contour, persistence_barcode, surface_3d, topology_profile
 from .tda import (
     extract_mergetree,
     get_persistence_dict,
@@ -20,7 +20,7 @@ class LossLandscape:
         """Computes a loss landscape and directly creates a LossLandscape object. See `landscaper.compute` for more information.
 
         Returns:
-            A LossLandscape object.
+            (LossLandscape) A LossLandscape object.
         """
         top_eigenvalues, top_eigenvectors, loss, coords = compute_loss_landscape(
             *args, **kwargs
@@ -111,7 +111,7 @@ class LossLandscape:
         return get_persistence_dict(self.get_ms_complex())
 
     def show(self, **kwargs):
-        """Renders a 3D representation of the loss landscape. See `landscaper.plots.surface_3d` for keyword arguments.
+        """Renders a 3D representation of the loss landscape. See :obj:`landscaper.plots.surface_3d` for keyword arguments.
 
         Raises:
             ValueError: Thrown if the landscape has too many dimensions.
@@ -124,7 +124,7 @@ class LossLandscape:
             )
 
     def show_profile(self, **kwargs):
-        """Renders the topological profile of the landscape. See `landscaper.plots.topological_profile` for more details."""
+        """Renders the topological profile of the landscape. See :obj:`landscaper.plots.topological_profile` for more details."""
         msc = self.get_ms_complex()
         mt = self.get_sublevel_tree()
 
@@ -132,7 +132,11 @@ class LossLandscape:
         profile = generate_profile(segInfo, mergeInfo, edgeInfo)
         return topology_profile(profile, **kwargs)
 
+    def show_contour(self, **kwargs):
+        """Renders a contour plot of the landscape. See :obj:`landscaper.plots.contour` for more details."""
+        return contour(self.ranges, self.loss)
+
     def show_persistence_barcode(self):
-        """Renders the persistence barcode of the landscape. See `landscaper.plots.persistence_barcode` for more details."""
+        """Renders the persistence barcode of the landscape. See :obj:`landscaper.plots.persistence_barcode` for more details."""
         msc = self.get_ms_complex()
         return persistence_barcode(msc)

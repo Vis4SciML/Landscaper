@@ -72,7 +72,7 @@ def compute_loss_landscape(
     dim: int = 3,
     batch_size: int = 10,
     device: DeviceStr = "cuda",
-):
+) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
     """
     Computes the loss landscape along the top-N eigenvector directions.
 
@@ -90,13 +90,14 @@ def compute_loss_landscape(
     """
     top_eigenvalues, top_eigenvectors = hessian_comp.eigenvalues(top_n=top_n)
     print(f"Top {top_n} eigenvalues: {top_eigenvalues}")
-    try:
-        coordinates = [np.linspace(-distance, distance, steps) for _ in dim]
 
-        # Get starting parameters and save original weights
-        with torch.no_grad():
-            start_point = get_model_parameters(model)
-            original_weights = clone_parameters(start_point)
+    # Get starting parameters and save original weights
+    with torch.no_grad():
+        start_point = get_model_parameters(model)
+        original_weights = clone_parameters(start_point)
+
+    try:
+        coordinates = [np.linspace(-distance, distance, steps) for _ in range(dim)]
 
         # Get top-N eigenvectors as directions
         directions = []
