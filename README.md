@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="600">
 <br>
-<h3>Landscaper enables the multi-dimensional analysis of machine learning loss landscapes.</h3> 
+<h3>A comprehensive Python framework designed for exploring the loss landscapes of deep learning models.</h3> 
 
 </div>
 
