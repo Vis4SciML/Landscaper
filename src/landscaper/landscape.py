@@ -5,11 +5,7 @@ import topopy as tp
 
 from .compute import compute_loss_landscape
 from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import (
-    extract_mergetree,
-    get_persistence_dict,
-    merge_tree,
-)
+from .tda import extract_mergetree, get_persistence_dict, merge_tree, topological_index
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -57,9 +53,9 @@ class LossLandscape:
         self.dims = self.coords.shape[1]
         self.graph = ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0)
         self.ms_complex = None
-        self.merge_tree = None
         self.sub_tree = None
         self.super_tree = None
+        self.topological_indices = None
 
     def save(self, filename: str):
         """Saves the loss and coordinates of the landscape to the specified path for later use.
@@ -106,6 +102,20 @@ class LossLandscape:
             self.ms_complex = ms_complex
         return self.ms_complex
 
+    def get_topological_indices(self) -> dict[int, int]:
+        """Returns a dictionary that maps point indices to their topological indices.
+        Returns:
+            (dict[int,int])
+        """
+        msc = self.get_ms_complex()
+        mt = self.get_sublevel_tree()
+        if self.topological_indices is None:
+            ti = {}
+            for n in mt.nodes:
+                ti[n] = topological_index(msc, n)
+            self.topological_indices = ti
+        return self.topological_indices
+
     def get_persistence(self):
         """Returns the persistence of the landscape as a dictionary."""
         return get_persistence_dict(self.get_ms_complex())
@@ -140,3 +150,23 @@ class LossLandscape:
         """Renders the persistence barcode of the landscape. See :obj:`landscaper.plots.persistence_barcode` for more details."""
         msc = self.get_ms_complex()
         return persistence_barcode(msc)
+
+    def smad(self) -> float:
+        """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape. See our publication for more details.
+
+        Returns:
+            (float) A descriptor of the smoothness of the landscape.
+        """
+        mt = self.get_sublevel_tree()
+        ti = self.get_topological_indices()
+
+        # branch persistence
+        bp = []
+        for b in mt.branches:
+            for edge in list(mt.edges):
+                n1, n2 = edge
+                if (b == n1 and ti[n2] == 0) or (b == n2 and ti[n1] == 0):
+                    bp.append(abs(mt.nodes[n1] - mt.nodes[n2]))
+        m = len(bp)
+
+        return sum(bp) / m
