@@ -73,6 +73,8 @@ nav:
   - Home: index.md
   - Examples:
       - Recurrent Neural Network (RNN): 'notebooks/rnn.ipynb'
+      - Convolutional Neural Network (CNN): 'notebooks/cnn.ipynb'
+      - Graph Neural Network (GNN): 'notebooks/gnn.ipynb'
   - API Reference: reference/
 
 
