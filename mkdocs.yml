@@ -67,14 +67,16 @@ plugins:
   - mkdocstrings
   - mkdocs-jupyter:
           ignore_h1_titles: True
+  - to-pdf
+    
 
 
 nav:
   - Home: index.md
   - Examples:
-      - Recurrent Neural Network (RNN): 'notebooks/rnn.ipynb'
-      - Convolutional Neural Network (CNN): 'notebooks/cnn.ipynb'
-      - Graph Neural Network (GNN): 'notebooks/gnn.ipynb'
+      - Recurrent Neural Network (RNN): './notebooks/rnn.ipynb'
+      - Convolutional Neural Network (CNN): './notebooks/cnn.ipynb'
+      - Graph Neural Network (GNN): './notebooks/gnn.ipynb'
   - API Reference: reference/
 
 
