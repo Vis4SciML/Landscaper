@@ -2,9 +2,20 @@ from landscaper.tda import digraph_mt
 
 import networkx as nx
 import itertools
+import topopy as tp
 
 
-def build_basin(node_id, g, mt):
+def build_basin(node_id: int, g: nx.DiGraph, mt: tp.MergeTree):
+    """Recursively calculates the points needed for each segmentation in the merge tree.
+
+    Args:
+        node_id (int): Node ID to calculate a basin for.
+        g (nx.DiGraph): Directed graph representation of the merge tree.
+        mt (tp.MergeTree): The merge tree.
+
+    Returns:
+        Total width of a given basin.
+    """
     child_width = 0
     for child_id in g.successors(node_id):
         child_width += build_basin(child_id, g, mt)
@@ -33,7 +44,19 @@ def build_basin(node_id, g, mt):
     return len(segmentations)
 
 
-def get_parent(g, n):
+def get_parent(g: nx.DiGraph, n: int):
+    """
+    Gets the parent of a node in the directed graph. Errors if there is more than one parent (no longer a tree).
+    Args:
+        g (nx.DiGraph): Directed graph representation of a merge tree.
+        n (int): Node ID to get parent for.
+
+    Returns:
+        The node id of the parent.
+
+    Raises:
+        ValueError: Thrown when there is more than one parent for a node.
+    """
     pred = list(g.predecessors(n))
     if len(pred) == 0:
         return None
@@ -44,6 +67,14 @@ def get_parent(g, n):
 
 
 def assign_center(node_id, g, start: int, end: int):
+    """Assigns the center of the basin when constructing the profile. Needed for visualization.
+
+    Args:
+        node_id (int): Node ID.
+        g (nx.DiGraph): Directed graph representation of a merge tree.
+        start (int): Leftmost point.
+        end (int): Rightmost point.
+    """
     node = g.nodes[node_id]
     center = (start + end) / 2
     node["center"] = center
@@ -62,7 +93,15 @@ def assign_center(node_id, g, start: int, end: int):
         left += partial_length
 
 
-def generate_profile(mt, msc):
+def generate_profile(mt: tp.MergeTree):
+    """Generates a topological profile based on a merge tree. Used along with :obj:`landscaper.plots.topoplogy_profile`. Can be visualized directly with a LossLandscape object using :obj:`landscaper.landscape.LossLandscape.show_profile`.
+
+    Args:
+        mt (tp.MergeTree):
+
+    Returns:
+        Profile data to visualize.
+    """
     root = mt.root
 
     g = digraph_mt(mt)
