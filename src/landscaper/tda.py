@@ -113,7 +113,6 @@ def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
     g.add_edges_from([(e[1], e[0]) for e in list(mt.edges)])
     e_info = {(e[1], e[0]): [e[0]] for e in list(mt.edges)}
     aug_info = {(e[1], e[0]): [e[0], *v] for e, v in mt.augmentedEdges.items()}
-
     e_info.update(aug_info)
 
     nx.set_edge_attributes(g, e_info, "partitions")

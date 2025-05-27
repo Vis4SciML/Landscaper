@@ -1,128 +1,88 @@
-from landscaper.tda import topological_index, digraph_mt
+from landscaper.tda import digraph_mt
 
 import networkx as nx
 import itertools
 
 
-class TreeNode:
-    def __init__(self, id, loss, parent=None):
-        self.node_id = id
-        self.loss = loss
-        self.children = {}
-        self.parent = parent
-        self.points = []
+def build_basin(node_id, g, mt):
+    child_width = 0
+    for child_id in g.successors(node_id):
+        child_width += build_basin(child_id, g, mt)
 
-
-def dfs(root):
-    if not root:
-        return
-
-    for ck in root.children:
-        child = root.children[ck]
-        child.parent = root
-        dfs(child)
-
-
-def construct_nodes(mt, msc):
-    nodes = {}
-    for nID, val in mt.nodes.items():
-        nodes[nID] = [val, topological_index(msc, nID)]
-    return nodes, mt.root
-
-
-def construct_tree(mt, nodes):
-    # node_id -> TreeNode
-    node_dict = {}
-    # target_node_id -> segmentation_id
-    edge_dict = {}
-
-    for e in list(mt.edges):
-        target, source = e
-        edge_dict[target] = e
-
-        # Create source node if it doesn't exist
-        if source not in node_dict:
-            node_dict[source] = TreeNode(source, nodes[source][0])
-
-        # Create target node if it doesn't exist
-        if target not in node_dict:
-            node_dict[target] = TreeNode(target, nodes[target][0], node_dict[source])
-        else:
-            # Update parent if node exists
-            node_dict[target].parent = node_dict[source]
-
-        node_dict[source].children[target] = node_dict[target]
-
-    dfs(node_dict[mt.root])
-
-    return node_dict, edge_dict
-
-
-def build_basin(node: TreeNode, g, mt, edge_dict):
-    node.child_width = 0
-    for child in node.children.values():
-        node.child_width += build_basin(child, g, mt, edge_dict)
-
-    curr_node = node.node_id
-    reachable = list(nx.bfs_edges(g, curr_node))
+    reachable = list(nx.bfs_edges(g, node_id))
     parts = nx.get_edge_attributes(g, "partitions")
 
     vals = list(itertools.chain.from_iterable([parts[e] for e in reachable]))
     segmentations = [mt.Y[v] for v in vals]
     segmentations.sort()
 
-    if node.parent:
-        segmentations.append(node.parent.loss)
+    parent = get_parent(g, node_id)
+    if parent is not None:
+        segmentations.append(g.nodes[parent]["value"])
 
-    node.points = segmentations
-    node.total_width = len(segmentations)
+    nx.set_node_attributes(
+        g,
+        {
+            node_id: {
+                "points": segmentations,
+                "total_width": len(segmentations),
+                "child_width": child_width,
+            }
+        },
+    )
+    return len(segmentations)
 
-    return node.total_width
+
+def get_parent(g, n):
+    pred = list(g.predecessors(n))
+    if len(pred) == 0:
+        return None
+    elif len(pred) > 1:
+        raise ValueError("Graph has nodes with more than 1 parent!")
+    else:
+        return pred[0]
 
 
-def assign_center(node: TreeNode, start: int, end: int):
-    if not node:
+def assign_center(node_id, g, start: int, end: int):
+    node = g.nodes[node_id]
+    center = (start + end) / 2
+    node["center"] = center
+
+    children = list(g.successors(node_id))
+    if len(children) == 0:
         return
 
-    node.center = (start + end) / 2
-    if len(node.children.values()) == 0:
-        return
-
-    left = start + (end - start) / 2 - node.child_width / 2
-    childrens = node.children.values()
-    childrens = sorted(childrens, key=lambda item: item.total_width, reverse=True)
-    for child in childrens:
-        proportion = child.total_width / node.child_width
-        partial_length = node.child_width * proportion
-        sub_start = left
-        sub_end = left + partial_length
-        assign_center(child, sub_start, sub_end)
+    cw = node["child_width"]
+    left = start + (end - start) / 2 - cw / 2
+    children = sorted(children, key=lambda x: g.nodes[x]["total_width"], reverse=True)
+    for child in children:
+        proportion = g.nodes[child]["total_width"] / cw
+        partial_length = cw * proportion
+        assign_center(child, g, left, left + partial_length)
         left += partial_length
 
 
 def generate_profile(mt, msc):
-    nodes, root_id = construct_nodes(mt, msc)
-    node_dict, edge_dict = construct_tree(mt, nodes)
-
-    root = node_dict[root_id]
+    root = mt.root
 
     g = digraph_mt(mt)
-    build_basin(root, g, mt, edge_dict)
-    assign_center(root, 0, root.total_width)
+    build_basin(root, g, mt)
+    assign_center(root, g, 0, g.nodes[root]["total_width"])
 
     # Initialize result arrays
     res = []
 
-    def collect_individual_basins(node: TreeNode):
-        for child in node.children.values():
+    def collect_individual_basins(node_id):
+        node = g.nodes[node_id]
+        for child in g.successors(node_id):
             collect_individual_basins(child)
 
-        right = [[i + node.center, y] for i, y in enumerate(node.points)]
+        right = [[i + node["center"], y] for i, y in enumerate(node["points"])]
 
-        node.points.reverse()
+        node["points"].reverse()
         left = [
-            [-1 * (len(node.points) - i) + node.center, y]
-            for i, y in enumerate(node.points)
+            [-1 * (len(node["points"]) - i) + node["center"], y]
+            for i, y in enumerate(node["points"])
         ]
 
         pts = left + right
