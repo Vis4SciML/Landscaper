@@ -111,20 +111,3 @@ def load_landscape(fp: str) -> tuple[npt.ArrayLike, npt.ArrayLike]:
         raise ValueError("Coordinates must at least be 2 dimensional.")
 
     return loss, coords
-
-
-def validate_dataframe(df: pd.DataFrame, required: list[str], name: str = "df"):
-    """Checks if a dataframe contains the correct data.
-    TODO: replace with https://github.com/unionai-oss/pandera
-
-    Args:
-        df (pd.DataFrame): The dataframe to validate.
-        required (list[str]): List of columns that must be present in the dataframe.
-        name (str): Name of the dataframe in the error message.
-
-    Raises:
-        ValueError: Thrown if the columns in `required` are missing in `df`.
-    """
-    missing = [col for col in required if col not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns in {name}.")

@@ -5,7 +5,7 @@ import topopy as tp
 
 from .compute import compute_loss_landscape
 from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import extract_mergetree, get_persistence_dict, merge_tree, topological_index
+from .tda import get_persistence_dict, merge_tree, topological_index
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -135,11 +135,10 @@ class LossLandscape:
 
     def show_profile(self, **kwargs):
         """Renders the topological profile of the landscape. See :obj:`landscaper.plots.topological_profile` for more details."""
-        msc = self.get_ms_complex()
         mt = self.get_sublevel_tree()
+        msc = self.get_ms_complex()
 
-        segInfo, mergeInfo, edgeInfo = extract_mergetree(msc, mt, self.loss)
-        profile = generate_profile(segInfo, mergeInfo, edgeInfo)
+        profile = generate_profile(mt, msc)
         return topology_profile(profile, **kwargs)
 
     def show_contour(self, **kwargs):

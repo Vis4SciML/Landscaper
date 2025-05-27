@@ -93,9 +93,6 @@ def topology_profile(
     if y_min is not None:
         loss_min = y_min
 
-    print(f"X-axis range: {x_min}, {x_max}")
-    print(f"Y-axis range: {loss_min}, {loss_max}")
-
     xScale = linearScale(x_min, x_max, marginLeft, width - marginRight)
     yScale = linearScale(loss_min, loss_max, height - marginBottom, marginTop)
 
