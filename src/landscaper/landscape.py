@@ -136,9 +136,7 @@ class LossLandscape:
     def show_profile(self, **kwargs):
         """Renders the topological profile of the landscape. See :obj:`landscaper.plots.topological_profile` for more details."""
         mt = self.get_sublevel_tree()
-        msc = self.get_ms_complex()
-
-        profile = generate_profile(mt, msc)
+        profile = generate_profile(mt)
         return topology_profile(profile, **kwargs)
 
     def show_contour(self, **kwargs):

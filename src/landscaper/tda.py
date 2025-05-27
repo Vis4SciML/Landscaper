@@ -7,7 +7,6 @@ import networkx as nx
 import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import topopy as tp
 
 

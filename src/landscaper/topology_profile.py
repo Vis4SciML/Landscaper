@@ -1,11 +1,12 @@
-from landscaper.tda import digraph_mt
+import itertools
 
 import networkx as nx
-import itertools
 import topopy as tp
 
+from landscaper.tda import digraph_mt
 
-def build_basin(node_id: int, g: nx.DiGraph, mt: tp.MergeTree):
+
+def build_basin(node_id: int, g: nx.DiGraph, mt: tp.MergeTree) -> int:
     """Recursively calculates the points needed for each segmentation in the merge tree.
 
     Args:
@@ -127,9 +128,7 @@ def generate_profile(mt: tp.MergeTree):
         pts = left + right
         if len(pts) > 0:
             res.append(
-                {
-                    "area": pts,
-                }
+                pts,
             )
 
     collect_individual_basins(root)

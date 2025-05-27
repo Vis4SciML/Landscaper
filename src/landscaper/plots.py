@@ -47,7 +47,7 @@ def topology_profile(
     """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
 
     Args:
-        data (tuple[pd.DataFrame, pd.DataFrame, pd.Dataframe]): The merge tree data.
+        data (List[List[float]]): The merge tree data.
         y_min (Union[float, None]): Optional minimum y value for the drawing.
         y_max (Union[float, None]): Optional maximum y value for the drawing.
         output_path (Union[float, str]): Optional path to save the drawing to.
@@ -67,14 +67,10 @@ def topology_profile(
     x_max = float("-inf")
     x_min = float("inf")
 
-    # points itself is a dictionary
-    # each point is a dictionary
-
+    # data should be a list of lists
     for d in data:
-        # area is a list of points
-        area = d["area"]
-        xVals = [pt[0] for pt in area]
-        yVals = [pt[1] for pt in area]
+        xVals = [pt[0] for pt in d]
+        yVals = [pt[1] for pt in d]
 
         x_max = max(x_max, max(xVals))
         x_min = min(x_min, min(xVals))
@@ -102,9 +98,7 @@ def topology_profile(
     )  # background color
 
     for d in data:
-        area = d["area"]
-
-        yVals = [pt[1] for pt in area]
+        yVals = [pt[1] for pt in d]
         minY = min(yVals)
         maxY = max(yVals)
 
@@ -119,7 +113,7 @@ def topology_profile(
             )
 
         path = dw.Path(stroke=grad, fill=grad)
-        start, *pts = area
+        start, *pts = d
         sx, sy = start
         path.M(xScale(sx), yScale(sy))
         for pt in pts:
