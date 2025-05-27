@@ -42,17 +42,26 @@ def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Numb
 
 
 def topology_profile(
-    data, y_min=None, y_max=None, output_path=None, size=800, margin=15
+    data,
+    y_min: float | None = None,
+    y_max: float | None = None,
+    size: int = 800,
+    margin: int = 15,
+    color: str = "red",
+    background_color: str = "white",
+    gradient: bool = True,
 ):
     """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
 
     Args:
         data (List[List[float]]): The merge tree data.
-        y_min (Union[float, None]): Optional minimum y value for the drawing.
-        y_max (Union[float, None]): Optional maximum y value for the drawing.
-        output_path (Union[float, str]): Optional path to save the drawing to.
+        y_min (Optional[float]): Optional minimum y value for the drawing.
+        y_max (Optional[float]): Optional maximum y value for the drawing.
         size (int): Size in pixels of the resulting drawing.
         margin (int): Size of the margins in pixels.
+        color (str): Color used to draw the profile.
+        background_color (str): Color used to draw the background.
+        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`. If false, only uses `color` to fill the path. Set this to false if you are exporting the drawing into a different format.
     """
     # TODO: validate profile data
     width = size
@@ -79,7 +88,7 @@ def topology_profile(
 
     # keep colors consistent regardless of y min and max chosen
     basinColors = Color.interpolate(
-        ["red", "orange", "yellow", "green", "blue", "purple"],
+        [color, background_color],
         domain=[max(loss_min, 1e-10), loss_max],
     )
 
@@ -102,15 +111,18 @@ def topology_profile(
         minY = min(yVals)
         maxY = max(yVals)
 
-        grad = dw.LinearGradient(
-            "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
-        )
-
-        for t in np.linspace(0.0, 1.0, 100):
-            yValue = minY + t * (maxY - minY)
-            grad.add_stop(
-                f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
+        if gradient:
+            grad = dw.LinearGradient(
+                "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
             )
+
+            for t in np.linspace(0.0, 1.0, 100):
+                yValue = minY + t * (maxY - minY)
+                grad.add_stop(
+                    f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
+                )
+        else:
+            grad = color
 
         path = dw.Path(stroke=grad, fill=grad)
         start, *pts = d
@@ -123,12 +135,6 @@ def topology_profile(
     return svg
 
     """
-        // Add the x-axis.
-        svg.append("g")
-            .attr("transform", `translate(0,${height - marginBottom})`)
-            .call(d3.axisBottom(xScale))
-            .style("font-size", "14px"); // Larger font size
-
         // Add the y-axis (removed grid lines and changed tick format from .1e to .1f)
         svg.append("g")
             .attr("transform", `translate(${marginLeft},0)`)
