@@ -48,3 +48,6 @@ If you use Landscaper in your research, please consider citing it. You can use t
   doi = {},
 }
 ```
+
+## Developers
+Install the dev dependencies with `uv sync`. When running `pytest`, pass `--html=report.html` to be able to visualize images created by the tests.

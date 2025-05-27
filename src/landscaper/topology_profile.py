@@ -1,4 +1,3 @@
-from collections import deque
 from landscaper.tda import topological_index, digraph_mt
 
 import networkx as nx
@@ -11,8 +10,7 @@ class TreeNode:
         self.loss = loss
         self.children = {}
         self.parent = parent
-        self.off_set_points_left = []
-        self.off_set_points_right = []
+        self.points = []
 
 
 def dfs(root):
@@ -65,47 +63,18 @@ def build_basin(node: TreeNode, g, mt, edge_dict):
     for child in node.children.values():
         node.child_width += build_basin(child, g, mt, edge_dict)
 
-    off_set_points_left = deque([])
-    off_set_points_right = deque([])
-
     curr_node = node.node_id
     reachable = list(nx.bfs_edges(g, curr_node))
     parts = nx.get_edge_attributes(g, "partitions")
+
     vals = list(itertools.chain.from_iterable([parts[e] for e in reachable]))
-    # all nodes underneath this one
-    vals.append(curr_node)
     segmentations = [mt.Y[v] for v in vals]
     segmentations.sort()
 
-    # point with smallest loss gets placed at center, moving ascending
-    off_set_points_right.append({"x": 0, "y": node.loss})
-    off_set_points_left.appendleft({"x": 0, "y": node.loss})
-    for i, s in enumerate(segmentations):
-        off_set_points_right.append({"x": i, "y": s})
-        off_set_points_left.appendleft(
-            {
-                "x": -i,
-                "y": s,
-            }
-        )
-
-    i += 1
     if node.parent:
-        off_set_points_right.append(
-            {
-                "x": i,
-                "y": node.parent.loss,
-            }
-        )
-        off_set_points_left.appendleft(
-            {
-                "x": -i,
-                "y": node.parent.loss,
-            }
-        )
+        segmentations.append(node.parent.loss)
 
-    node.off_set_points_left = off_set_points_left
-    node.off_set_points_right = off_set_points_right
+    node.points = segmentations
     node.total_width = len(segmentations)
 
     return node.total_width
@@ -148,9 +117,12 @@ def generate_profile(mt, msc):
         for child in node.children.values():
             collect_individual_basins(child)
 
-        left = [[ori["x"] + node.center, ori["y"]] for ori in node.off_set_points_left]
-        right = [
-            [ori["x"] + node.center, ori["y"]] for ori in node.off_set_points_right
+        right = [[i + node.center, y] for i, y in enumerate(node.points)]
+
+        node.points.reverse()
+        left = [
+            [-1 * (len(node.points) - i) + node.center, y]
+            for i, y in enumerate(node.points)
         ]
 
         pts = left + right
