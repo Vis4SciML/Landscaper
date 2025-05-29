@@ -53,5 +53,5 @@ jobs:
           restore-keys: |
             mkdocs-material-
 
-      - name: deploy
-        run: uv run mkdocs gh-deploy --force
+      - name: Deploy Docs
+        run: uv run --no-sync --no-editable mkdocs gh-deploy --force
