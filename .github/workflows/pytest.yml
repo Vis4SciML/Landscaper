@@ -31,6 +31,10 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
+      - uses: astral-sh/ruff-action@v3
+        with:
+          src: "./src"
+
       - name: Install pytest deps
         run: uv pip install pytest-md pytest-emoji
 
@@ -40,5 +44,3 @@ jobs:
           verbose: true
           emoji: true
           job-summary: true
-          click-to-expand: true
-          report-title: 'Test Report'
