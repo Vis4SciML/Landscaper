@@ -24,10 +24,20 @@ Check out the [quick start guide] for a step-by-step introduction to using Lands
 The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples.
 
 ## Installation
-To install Landscaper, you can use pip. The package is available on PyPI and can be installed with the following command:
+Landscaper is available on [PyPI](https://pypi.org/project/landscaper/), making it easy to install and integrate into your projects.
+
+Landscaper requires Python `>=3.10,<3.13` and PyTorch `>=2.0.0` and is compatible with both CPU and GPU environments. To install PyTorch, follow the instructions on the [PyTorch website](https://pytorch.org/get-started/locally/) to select the appropriate version for your system. Then you can install Landscaper using pip. 
+
+To install Landscaper, run the following command:
 
 ```bash
 pip install landscaper
+```
+
+To install Landscaper with all the dependencies to run the examples, use:
+
+```bash
+pip install landscaper[examples]
 ```
 
 ## BibTeX Citation 
