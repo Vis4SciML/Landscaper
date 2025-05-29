@@ -42,7 +42,7 @@ jobs:
           enable-cache: true
 
       - name: Install the project
-        run: uv venv && uv pip install jupyter mkdocstrings[python] mkdocs-to-pdf mkdocs-section-index mkdocs-material mkdocs-literate-nav mkdocs-jupyter mkdocs-gen-files
+        run: uv sync --extra docs --no-install-package torch 
           
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
       
@@ -54,4 +54,4 @@ jobs:
             mkdocs-material-
 
       - name: Deploy Docs
-        run: uv run --no-sync --no-editable mkdocs gh-deploy --force
+        run: uv run --no-sync mkdocs gh-deploy --force
