@@ -31,6 +31,14 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - name: Run tests
-        # For example, using `pytest`
-        run: uv run pytest 
+      - name: Install pytest deps
+        run: uv pip install pytest-md pytest-emoji
+
+      - name: Run pytest
+        uses: quantco/pytest-action@v2
+        with:
+          verbose: true
+          emoji: true
+          job-summary: true
+          click-to-expand: true
+          report-title: 'Test Report'
