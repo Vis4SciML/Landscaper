@@ -12,7 +12,6 @@ dependencies = [
     "numpy>=1.26.4",
     "pandas>=2.2.3",
     "topopy>=1.0.4",
-    "torch>=2.6.0",
     "treelib>=1.7.1",
     "pyhessian",
     "drawsvg>=2.4.0",
