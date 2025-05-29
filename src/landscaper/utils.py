@@ -3,7 +3,6 @@ from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import torch
 
 DeviceStr = Literal["cuda", "cpu"]
@@ -17,7 +16,7 @@ def group_product(xs, ys):
     :param ys:
     :return:
     """
-    return sum([torch.sum(x * y) for (x, y) in zip(xs, ys)])
+    return sum([torch.sum(x * y) for (x, y) in zip(xs, ys, strict=False)])
 
 
 def group_add(params, update, alpha=1):
@@ -27,7 +26,7 @@ def group_add(params, update, alpha=1):
     :param update: list of data
     :return:
     """
-    for i, p in enumerate(params):
+    for i, _ in enumerate(params):
         params[i].data.add_(update[i] * alpha)
     return params
 
@@ -65,9 +64,7 @@ def hessian_vector_product(gradsH, params, v):
     params is the corresponding variables,
     v is the vector.
     """
-    hv = torch.autograd.grad(
-        gradsH, params, grad_outputs=v, only_inputs=True, retain_graph=True
-    )
+    hv = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True, retain_graph=True)
     return hv
 
 
