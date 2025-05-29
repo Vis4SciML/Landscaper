@@ -28,7 +28,6 @@ docs = [
     "mkdocs-literate-nav>=0.6.2",
     "mkdocs-material>=9.6.14",
     "mkdocs-section-index>=0.3.10",
-    "mkdocs-to-pdf>=0.10.1",
     "mkdocstrings[python]>=0.29.1",
 ]
 

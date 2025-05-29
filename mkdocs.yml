@@ -67,7 +67,6 @@ plugins:
   - mkdocstrings
   - mkdocs-jupyter:
           ignore_h1_titles: True
-  - to-pdf
     
 
 
