@@ -7,7 +7,6 @@ import networkx as nx
 import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import topopy as tp
 
 
@@ -81,55 +80,6 @@ def topological_index(msc: tp.MorseSmaleComplex, idx: int) -> Literal[0, 1, 2]:
         return 2
 
 
-def extract_mergetree(
-    msc: tp.MorseSmaleComplex, mt: tp.MergeTree, vals: npt.ArrayLike
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Converts a merge tree into a representation that can be used to generate a topological profile.
-
-    Args:
-        msc (tp.MorseSmaleComplex): Morse-Smale representation of the space.
-        mt (tp.MergeTree): Merge tree of the space.
-        vals (npt.ArrayLike): Function values of the space.
-
-    Returns:
-        Tuple of dataframes for profile generation.
-    """
-    fv = vals.flatten()
-    seg = mt.augmentedEdges
-    segmentation = np.zeros((len(fv), 2))
-
-    e_to_p = {e: i for i, e in enumerate(list(mt.augmentedEdges.keys()))}
-
-    for e, idxes in seg.items():
-        for idx in idxes:
-            segmentation[idx] = [fv[idx], e_to_p[e]]
-    s_df = pd.DataFrame(np.array(segmentation), columns=["Loss", "SegmentationId"])
-
-    s_df = s_df.astype({"SegmentationId": np.int16})
-
-    mergeInfo = []
-    for nID, val in mt.nodes.items():
-        mergeInfo.append([nID, val, topological_index(msc, nID)])
-
-    midf = pd.DataFrame(
-        np.array(mergeInfo), columns=["NodeId", "Scalar", "CriticalType"]
-    )
-    midf = midf.astype({"NodeId": np.int16, "CriticalType": np.uint8})
-    midf = midf.sort_values(by="Scalar")
-
-    edgeInfo = []
-    for e in mt.augmentedEdges:
-        n1, n2 = e
-        segID = e_to_p[e]
-        edgeInfo.append([segID, n2, n1])
-
-    eidf = pd.DataFrame(
-        np.array(edgeInfo), columns=["SegmentationId", "upNodeId", "downNodeId"]
-    )
-
-    return s_df, midf, eidf
-
-
 def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
     """Converts a Topopy MergeTree to a networkx representation.
 
@@ -143,4 +93,29 @@ def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
     for n, v in mt.nodes.items():
         g.add_node(n, value=v)
     g.add_edges_from(list(mt.edges))
+    return g
+
+
+def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
+    """Converts a merge tree to a directed graph representation that makes it easy to navigate the hierarchy. The root is the maximum which points down the tree towards saddles and minima. The 'partition' edge attributes list the members of the integral line from node a->b, while 'counts' contains the number of members along that line.
+
+    Args:
+        mt (tp.MergeTree):
+
+    Returns:
+        A networkx DiGraph representation of the merge tree hierarchy.
+    """
+    g = nx.DiGraph()
+    for n, v in mt.nodes.items():
+        g.add_node(n, value=v)
+
+    g.add_edges_from([(e[1], e[0]) for e in list(mt.edges)])
+    e_info = {(e[1], e[0]): [e[0]] for e in list(mt.edges)}
+    aug_info = {(e[1], e[0]): [e[0], *v] for e, v in mt.augmentedEdges.items()}
+    e_info.update(aug_info)
+
+    nx.set_edge_attributes(g, e_info, "partitions")
+    len_part_dict = {e: len(v) for e, v in e_info.items()}
+    nx.set_edge_attributes(g, len_part_dict, "counts")
+
     return g

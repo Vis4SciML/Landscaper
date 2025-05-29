@@ -8,6 +8,7 @@ from matplotlib.colors import LogNorm
 
 from .tda import get_persistence_dict
 from .utils import Number
+from typing import TypedDict, Callable, Optional
 
 
 def persistence_barcode(msc: tp.MorseSmaleComplex):
@@ -41,18 +42,37 @@ def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Numb
     return lambda x: (new_max - new_min) / (max_val - min_val) * (x - max_val) + new_max
 
 
+class AxisOptions(TypedDict):
+    tick_format: Callable[[float], str]
+    font_size: int
+
+
+default_axis = AxisOptions(tick_format=lambda x: str(round(x, 3)), font_size=14)
+
+
 def topology_profile(
-    data, y_min=None, y_max=None, output_path=None, size=800, margin=15
+    data,
+    y_min: float | None = None,
+    y_max: float | None = None,
+    size: int = 800,
+    margin: int = 15,
+    color: str = "red",
+    background_color: str = "white",
+    gradient: bool = True,
+    y_axis: AxisOptions | None = default_axis,
 ):
     """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
 
     Args:
-        data (tuple[pd.DataFrame, pd.DataFrame, pd.Dataframe]): The merge tree data.
-        y_min (Union[float, None]): Optional minimum y value for the drawing.
-        y_max (Union[float, None]): Optional maximum y value for the drawing.
-        output_path (Union[float, str]): Optional path to save the drawing to.
+        data (List[List[float]]): The merge tree data.
+        y_min (Optional[float]): Optional minimum y value for the drawing.
+        y_max (Optional[float]): Optional maximum y value for the drawing.
         size (int): Size in pixels of the resulting drawing.
         margin (int): Size of the margins in pixels.
+        color (str): Color used to draw the profile.
+        background_color (str): Color used to draw the background.
+        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`. If false, only uses `color` to fill the path. Set this to false if you are exporting the drawing into a different format.
+        y_axis (AxisOptions): Sets options for the Y axis. Set to None to disable.
     """
     # TODO: validate profile data
     width = size
@@ -67,14 +87,10 @@ def topology_profile(
     x_max = float("-inf")
     x_min = float("inf")
 
-    # points itself is a dictionary
-    # each point is a dictionary
-
+    # data should be a list of lists
     for d in data:
-        # area is a list of points
-        area = d["area"]
-        xVals = [pt[0] for pt in area]
-        yVals = [pt[1] for pt in area]
+        xVals = [pt[0] for pt in d]
+        yVals = [pt[1] for pt in d]
 
         x_max = max(x_max, max(xVals))
         x_min = min(x_min, min(xVals))
@@ -83,7 +99,7 @@ def topology_profile(
 
     # keep colors consistent regardless of y min and max chosen
     basinColors = Color.interpolate(
-        ["red", "orange", "yellow", "green", "blue", "purple"],
+        [color, background_color],
         domain=[max(loss_min, 1e-10), loss_max],
     )
 
@@ -92,9 +108,6 @@ def topology_profile(
 
     if y_min is not None:
         loss_min = y_min
-
-    print(f"X-axis range: {x_min}, {x_max}")
-    print(f"Y-axis range: {loss_min}, {loss_max}")
 
     xScale = linearScale(x_min, x_max, marginLeft, width - marginRight)
     yScale = linearScale(loss_min, loss_max, height - marginBottom, marginTop)
@@ -105,69 +118,57 @@ def topology_profile(
     )  # background color
 
     for d in data:
-        area = d["area"]
-
-        yVals = [pt[1] for pt in area]
+        yVals = [pt[1] for pt in d]
         minY = min(yVals)
         maxY = max(yVals)
 
-        grad = dw.LinearGradient(
-            "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
-        )
-
-        for t in np.linspace(0.0, 1.0, 100):
-            yValue = minY + t * (maxY - minY)
-            grad.add_stop(
-                f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
+        if gradient:
+            grad = dw.LinearGradient(
+                "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
             )
 
+            for t in np.linspace(0.0, 1.0, 100):
+                yValue = minY + t * (maxY - minY)
+                grad.add_stop(
+                    f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
+                )
+        else:
+            grad = color
+
         path = dw.Path(stroke=grad, fill=grad)
-        start, *pts = area
+        start, *pts = d
         sx, sy = start
         path.M(xScale(sx), yScale(sy))
         for pt in pts:
             x, y = pt
             path.L(xScale(x), yScale(y))
         svg.append(path)
+
+    if y_axis is not None:
+        ax = dw.Line(
+            marginLeft / 2,
+            height - marginBottom,
+            marginLeft / 2,
+            marginTop,
+            stroke="black",
+        )
+
+        svg.append(ax)
+        for t in np.linspace(0.0, 1.0, 10):
+            v = loss_min + t * (loss_max - loss_min)
+            tv = yScale(v)
+            tick = dw.Line(marginLeft / 2, tv, marginLeft, tv, stroke="black")
+            lbl = dw.Text(
+                y_axis["tick_format"](v),
+                font_size=y_axis["font_size"],
+                dominant_baseline="middle",
+                x=marginLeft,
+                y=tv,
+            )
+            svg.append(lbl)
+            svg.append(tick)
+
     return svg
-
-    """
-        // Add the x-axis.
-        svg.append("g")
-            .attr("transform", `translate(0,${height - marginBottom})`)
-            .call(d3.axisBottom(xScale))
-            .style("font-size", "14px"); // Larger font size
-
-        // Add the y-axis (removed grid lines and changed tick format from .1e to .1f)
-        svg.append("g")
-            .attr("transform", `translate(${marginLeft},0)`)
-            .call(d3.axisLeft(yScale).ticks(10, ".1f"))
-            .style("font-size", "14px");
-
-        // Update y-axis label with larger font and better positioning
-        svg.append("text")
-            .attr("x", -height / 2) // For vertical text, start from middle of height
-            .attr("y", 15) // Move further left from axis (smaller number moves it left)
-            .attr("transform", "rotate(-90)") // Rotate text to be vertical
-            .attr("text-anchor", "middle") // Center the text
-            .style("font-size", "18px") // Larger font size
-            .text("Function Value");
-
-        // Add title with truncated filename
-        svg.append("text")
-            .attr("x", width / 2)
-            .attr("y", marginTop - 15)
-            .attr("text-anchor", "middle")
-            .style("font-size", "18px")
-            .style("font-weight", "bold")
-            .text(
-                file
-                    .replace("_TP.json", "")
-                    .split("UnstructuredGrid_rknn")[0]
-            );
-
- 
-    """
 
 
 def contour(

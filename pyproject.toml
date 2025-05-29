@@ -14,7 +14,7 @@ dependencies = [
     "topopy>=1.0.4",
     "treelib>=1.7.1",
     "pyhessian",
-    "drawsvg>=2.4.0",
+    "drawsvg[all]>=2.4.0",
     "coloraide>=4.6",
     "tqdm>=4.67.1",
 ]
@@ -67,6 +67,8 @@ ignore=["E501"]
 [dependency-groups]
 dev = [
     "jupyter>=1.1.1",
+    "pytest>=8.3.5",
+    "pytest-html>=4.1.1",
 ]
 examples = [
     "torch-geometric>=2.6.1",

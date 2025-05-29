@@ -1,0 +1,57 @@
+name: docs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - info
+        - warning
+        - debug
+      tags:
+        description: 'Test scenario tags'
+        required: false
+        type: boolean
+  
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Git Credentials
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --extra docs --no-install-package torch nvidia-curand-cu12 nvidia-nvjitlink-cu12 nvidia-cublas-cu12 nvidia-nccl-cu12 nvidia-cuda-nvrtc-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12 nvidia-cusparselt-cu12 nvidia-cusparse-cu12 nvidia-cufile-cu12 nvidia-cuda-cupti-cu12
+                      
+      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
+      
+      - uses: actions/cache@v4
+        with:
+          key: mkdocs-material-${{ env.cache_id }}
+          path: .cache
+          restore-keys: |
+            mkdocs-material-
+
+      - name: Deploy Docs
+        run: uv run --no-sync mkdocs gh-deploy --force
