@@ -1,5 +1,3 @@
-# can be renamed to tda.py later, keeping it as math for now for compatibility purposes
-
 from typing import Literal
 
 import gudhi as gd
