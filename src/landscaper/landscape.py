@@ -18,9 +18,7 @@ class LossLandscape:
         Returns:
             (LossLandscape) A LossLandscape object.
         """
-        top_eigenvalues, top_eigenvectors, loss, coords = compute_loss_landscape(
-            *args, **kwargs
-        )
+        top_eigenvalues, top_eigenvectors, loss, coords = compute_loss_landscape(*args, **kwargs)
         return LossLandscape(loss, coords)
 
     @staticmethod
@@ -40,9 +38,7 @@ class LossLandscape:
         self.loss = loss
         # converts meshgrid output of arbitrary dimensions into list of coordinates
         grid = np.meshgrid(*ranges)
-        self.coords = np.array(
-            [list(z) for z in zip(*(x.flat for x in grid), strict=False)]
-        )
+        self.coords = np.array([list(z) for z in zip(*(x.flat for x in grid), strict=False)])
 
         if self.coords.shape[0] != np.multiply.reduce(self.loss.shape):
             raise ValueError(
@@ -83,9 +79,7 @@ class LossLandscape:
         """
 
         if self.super_tree is None:
-            self.super_tree = merge_tree(
-                self.loss, self.coords, self.graph, direction=-1
-            )
+            self.super_tree = merge_tree(self.loss, self.coords, self.graph, direction=-1)
         return self.super_tree
 
     def get_ms_complex(self) -> tp.MorseSmaleComplex:
@@ -95,9 +89,7 @@ class LossLandscape:
             A tp.MorseSmaleComplex.
         """
         if self.ms_complex is None:
-            ms_complex = tp.MorseSmaleComplex(
-                graph=self.graph, gradient="steepest", normalization="feature"
-            )
+            ms_complex = tp.MorseSmaleComplex(graph=self.graph, gradient="steepest", normalization="feature")
             ms_complex.build(np.array(self.coords), self.loss.flatten())
             self.ms_complex = ms_complex
         return self.ms_complex
@@ -129,9 +121,7 @@ class LossLandscape:
         if self.dims == 2:
             return surface_3d(self.ranges, self.loss, **kwargs)
         else:
-            raise ValueError(
-                f"Cannot visualize a landscape with {self.dims} dimensions."
-            )
+            raise ValueError(f"Cannot visualize a landscape with {self.dims} dimensions.")
 
     def show_profile(self, **kwargs):
         """Renders the topological profile of the landscape. See :obj:`landscaper.plots.topological_profile` for more details."""

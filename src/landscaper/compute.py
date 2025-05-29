@@ -54,10 +54,7 @@ def get_model_norm(parameters):
 def normalize_direction(direction, parameters):
     """Normalize a direction."""
     for d, p in zip(direction, parameters, strict=False):
-        d.mul_(
-            torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device))
-            / (d.norm() + 1e-10)
-        )
+        d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
     return direction
 
 
@@ -112,14 +109,9 @@ def compute_loss_landscape(
                 random_dir = [torch.randn_like(p) for p in start_point]
                 # Make it orthogonal to previous directions (simplified Gram-Schmidt)
                 for prev_dir in directions:
-                    dot_product = sum(
-                        (d1 * d2).sum()
-                        for d1, d2 in zip(random_dir, prev_dir, strict=False)
-                    )
+                    dot_product = sum((d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False))
 
-                    for j, (d1, d2) in enumerate(
-                        zip(random_dir, prev_dir, strict=False)
-                    ):
+                    for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
                         random_dir[j] = d1 - dot_product * d2
                 directions.append(random_dir)
 
@@ -153,12 +145,8 @@ def compute_loss_landscape(
 
             # For dimensions > 5, we'll likely run out of memory with a full grid
             if dim > 5:
-                print(
-                    f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
-                )
-                print(
-                    f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
-                )
+                print(f"Warning: High dimensionality ({dim}) may require significant memory and computation time.")
+                print(f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension.")
                 # For very high dimensions, we might want to do random sampling instead
 
             # Generate grid coordinates
@@ -172,9 +160,7 @@ def compute_loss_landscape(
             # Initialize counters for averaging
             loss_counts = np.zeros(loss_shape, dtype=int)
 
-            for batch_idx in tqdm(
-                range(num_batches), desc=f"Computing {dim}D landscape"
-            ):
+            for batch_idx in tqdm(range(num_batches), desc=f"Computing {dim}D landscape"):
                 batch_start = batch_idx * batch_size
                 batch_end = min((batch_idx + 1) * batch_size, len(grid_points))
                 current_batch = grid_points[batch_start:batch_end]

@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import TypedDict
+
 import drawsvg as dw
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +11,6 @@ from matplotlib.colors import LogNorm
 
 from .tda import get_persistence_dict
 from .utils import Number
-from typing import TypedDict, Callable, Optional
 
 
 def persistence_barcode(msc: tp.MorseSmaleComplex):
@@ -113,9 +115,7 @@ def topology_profile(
     yScale = linearScale(loss_min, loss_max, height - marginBottom, marginTop)
 
     svg = dw.Drawing(width, height)
-    svg.append(
-        dw.Rectangle(0, 0, width, height, fill="white", stroke="#777")
-    )  # background color
+    svg.append(dw.Rectangle(0, 0, width, height, fill="white", stroke="#777"))  # background color
 
     for d in data:
         yVals = [pt[1] for pt in d]
@@ -123,15 +123,11 @@ def topology_profile(
         maxY = max(yVals)
 
         if gradient:
-            grad = dw.LinearGradient(
-                "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
-            )
+            grad = dw.LinearGradient("0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox")
 
             for t in np.linspace(0.0, 1.0, 100):
                 yValue = minY + t * (maxY - minY)
-                grad.add_stop(
-                    f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
-                )
+                grad.add_stop(f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True))
         else:
             grad = color
 
@@ -171,9 +167,7 @@ def topology_profile(
     return svg
 
 
-def contour(
-    coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)
-):
+def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
     """Draws a contour plot from the provided coordinates and values.
 
     Args:
@@ -257,9 +251,7 @@ def contour(
     ax1.axis("equal")
 
 
-def surface_3d(
-    coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)
-):
+def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
     Args:
@@ -291,9 +283,7 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(
-            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True
-        )
+        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True)
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")

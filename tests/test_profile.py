@@ -1,9 +1,10 @@
+import base64
+
 import pytest
 import pytest_html
 
 from landscaper.plots import topology_profile
 from landscaper.topology_profile import generate_profile
-import base64
 
 
 def svg_to_str(svg):
