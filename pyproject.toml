@@ -42,6 +42,7 @@ examples = [
 [dependency-groups]
 dev = [
     "jupyter>=1.1.1",
+    "mypy>=1.16.0",
     "pytest>=8.3.5",
     "pytest-html>=4.1.1",
     "ruff>=0.11.12",
@@ -54,6 +55,11 @@ pyhessian = { workspace = true }
 members = [
     "packages/pyhessian",
 ]
+
+[tool.mypy]
+[[tool.mypy.overrides]]
+module = ['*.*']
+ignore_missing_imports = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/landscaper"]
