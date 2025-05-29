@@ -1,10 +1,10 @@
-name: Testing CI
+name: pytest
 
 
 on:
   pull_request:
     branches:
-    - main
+    - master
   workflow_dispatch:
 
 jobs:
@@ -25,10 +25,22 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
 
       - name: Install the project
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --all-extras --dev
 
-      - name: Run tests
-        # For example, using `pytest`
-        run: uv run pytest 
+      - uses: astral-sh/ruff-action@v3
+        with:
+          src: "./src"
+
+      - name: Install pytest deps
+        run: uv pip install pytest-md pytest-emoji
+
+      - name: Run pytest
+        uses: quantco/pytest-action@v2
+        with:
+          verbose: true
+          emoji: true
+          job-summary: true
