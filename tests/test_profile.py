@@ -18,7 +18,7 @@ def profile(landscape_2d):
 
 
 def test_generate_profile_grad(profile, extras):
-    svg = topology_profile(profile, gradient=True, y_axis=None)
+    svg = topology_profile(profile, gradient=True)
     extras.append(pytest_html.extras.svg(svg_to_str(svg)))
 
 

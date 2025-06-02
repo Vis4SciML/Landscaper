@@ -8,6 +8,8 @@ import numpy.typing as npt
 import topopy as tp
 from coloraide import Color
 from matplotlib.colors import LogNorm
+from matplotlib.patches import Patch
+from scipy.interpolate import interp1d
 
 from .tda import get_persistence_dict
 from .utils import Number
@@ -249,6 +251,7 @@ def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int,
     ax1.set_title("Loss Landscape Contour", fontsize=14)
     ax1.grid(True, linestyle="--", alpha=0.3)
     ax1.axis("equal")
+    plt.show()
 
 
 def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
@@ -293,5 +296,158 @@ def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, i
 
     # Adjust the viewing angle for better visualization
     ax.view_init(elev=30, azim=45)
+    plt.show()
 
+
+def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)):
+    density_eigen = np.array(eigen)
+    density_weight = np.array(weight)
+
+    # Ensure both arrays are 1D
+    if density_eigen.ndim > 1:
+        density_eigen = density_eigen.ravel()
+    if density_weight.ndim > 1:
+        density_weight = density_weight.ravel()
+
+    # Ensure arrays have matching dimensions
+    if len(density_eigen) != len(density_weight):
+        # Create new x points for interpolation
+        x_old = np.linspace(min(density_eigen), max(density_eigen), len(density_weight))
+        x_new = np.linspace(min(density_eigen), max(density_eigen), len(density_eigen))
+
+        f = interp1d(x_old, density_weight, kind="linear", fill_value="extrapolate")
+        density_weight = f(x_new)
+
+    # Ensure we're only plotting real components
+    if np.iscomplexobj(density_eigen):
+        density_eigen = density_eigen.real
+    if np.iscomplexobj(density_weight):
+        density_weight = density_weight.real
+
+    # Sort values for better visualization
+    sort_idx = np.argsort(density_eigen)
+    density_eigen = density_eigen[sort_idx]
+    density_weight = density_weight[sort_idx]
+
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    # Create smooth curves using kernel density estimation
+    if len(density_eigen) > 1:  # Only if we have enough points
+        # Separate positive and negative regions
+        pos_mask = density_eigen >= 0
+        neg_mask = density_eigen < 0
+
+        # Create histogram data with more bins for better resolution
+        num_bins = 200  # Increased from 100 to 200 for more detail
+
+        # Find the global min and max for consistent binning
+        global_min = min(density_eigen)
+        global_max = max(density_eigen)
+
+        # Create consistent bins across the entire range
+        bins = np.linspace(global_min, global_max, num_bins + 1)
+
+        # Create separate histograms but using the same bin definitions
+        pos_hist, _ = np.histogram(density_eigen[pos_mask], bins=bins, density=True)
+        neg_hist, _ = np.histogram(density_eigen[neg_mask], bins=bins, density=True)
+
+        # Plot histograms with consistent bins
+        ax.hist(
+            density_eigen[pos_mask],
+            bins=bins,
+            alpha=0.4,
+            color="#90CAF9",
+            label="Positive Histogram",
+            density=True,
+            edgecolor="#2E86C1",
+            linewidth=0.5,
+        )
+        ax.hist(
+            density_eigen[neg_mask],
+            bins=bins,
+            alpha=0.4,
+            color="#FFAB91",
+            label="Negative Histogram",
+            density=True,
+            edgecolor="#E74C3C",
+            linewidth=0.5,
+        )
+
+    ax.ylabel("Density", fontsize=12, fontweight="bold")
+    ax.xlabel("Eigenvalue", fontsize=12, fontweight="bold")
+    ax.title(
+        "Hessian Eigenvalue Density Distribution",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
+    )
+
+    # Add vertical line at x=0
+    ax.axvline(x=0, color="black", linestyle="--", alpha=0.5)
+
+    # Add legend if we have both positive and negative values
+    if np.any(density_eigen < 0) and np.any(density_eigen >= 0):
+        ax.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
+
+    ax.grid(True, linestyle="--", alpha=0.7)
+    ax.tight_layout()
+    plt.show()
+
+
+def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
+    # Plot the top-10 eigenvalues as an enhanced bar chart
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    indices = np.arange(len(top_eigenvalues))
+
+    # Create bars with different colors for positive and negative values
+    colors = ["#2E86C1" if val >= 0 else "#E74C3C" for val in top_eigenvalues]
+    bars = ax.bar(indices, top_eigenvalues, color=colors, width=0.7)
+
+    # Add value labels on top of each bar
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height + (5 if height >= 0 else -15),
+            f"{height:.2f}",
+            ha="center",
+            va="bottom" if height >= 0 else "top",
+            fontsize=10,
+            fontweight="bold",
+        )
+
+    plt.xlabel("Index", fontsize=12, fontweight="bold")
+    plt.ylabel("Eigenvalue", fontsize=12, fontweight="bold")
+    plt.title(
+        f"Top-{len(top_eigenvalues)} Hessian Eigenvalues",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
+    )
+    # Improve x-axis ticks
+    ax.xticks(indices, [f"{i + 1}" for i in indices], fontsize=10)
+
+    # Add horizontal line at y=0 with better styling
+    ax.axhline(y=0, color="black", linestyle="-", alpha=0.2, zorder=0)
+
+    # Add grid with better styling
+    ax.grid(True, axis="y", linestyle="--", alpha=0.3, zorder=0)
+
+    legend_elements = [
+        Patch(facecolor="#2E86C1", label="Positive Eigenvalues", alpha=0.9),
+        Patch(facecolor="#E74C3C", label="Negative Eigenvalues", alpha=0.9),
+    ]
+    ax.legend(
+        handles=legend_elements,
+        loc="upper right",
+        frameon=True,
+        fancybox=True,
+        shadow=True,
+    )
+
+    # Adjust layout
+    ax.tight_layout()
     plt.show()
