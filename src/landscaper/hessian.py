@@ -1,4 +1,4 @@
-# *
+"""PyHessian Hessian module."""
 # @file Different utility functions
 # Copyright (c) Zhewei Yao, Amir Gholami
 # All rights reserved.
@@ -18,6 +18,8 @@
 # along with PyHessian.  If not, see <http://www.gnu.org/licenses/>.
 # *
 
+from collections.abc import Generator
+
 import numpy as np
 import torch
 
@@ -31,14 +33,21 @@ from .utils import (
 )
 
 
-def generic_generator(model, criterion, data, device: DeviceStr):
+def generic_generator(
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    data: torch.utils.data.DataLoader,
+    device: DeviceStr,
+) -> Generator[tuple[int, torch.nn.Module], None, None]:
     """Calculates the per-sample gradient for most Pytorch models that implement `backward`.
+
     Default implementation used for PyHessian; the underlying code expects that this generator
     returns the size of the input and a pointer to the model at each step.
+
     Args:
-        model (Any): The model to calculate per-sample gradients for.
-        criterion (Any): Function that calculates the loss for the model.
-        data (Any): Source of data for the model.
+        model (torch.nn.Module): The model to calculate per-sample gradients for.
+        criterion (torch.nn.Module): Function that calculates the loss for the model.
+        data (torch.utils.data.DataLoader): Source of data for the model.
         device (DeviceStr): Device used for pyTorch calculations.
 
     Yields:
@@ -54,8 +63,23 @@ def generic_generator(model, criterion, data, device: DeviceStr):
         yield input_size, model
 
 
-def dimenet_generator(model, criterion, data, device):
-    """Example per-sample gradient generator for the Dimenet model architecture."""
+def dimenet_generator(
+    model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    data: torch.utils.data.DataLoader,
+    device: DeviceStr,
+) -> Generator[tuple[int, torch.nn.Module], None, None]:
+    """Calculates the per-sample gradient for DimeNet models.
+
+    Args:
+        model (torch.nn.Module): The DimeNet model to calculate per-sample gradients for.
+        criterion (torch.nn.Module): Function that calculates the loss for the model.
+        data (torch.utils.data.DataLoader): Source of data for the model.
+        device (DeviceStr): Device used for pyTorch calculations.
+
+    Yields:
+        The size of the current input (int) and the model.
+    """
     for batch in data:
         model.zero_grad()
         batch = batch.to(device)
@@ -68,7 +92,31 @@ def dimenet_generator(model, criterion, data, device):
 
 
 class PyHessian:
-    def __init__(self, model, criterion, data, device, hessian_generator=generic_generator):
+    """PyHessian class for computing Hessian-related quantities.
+
+    This class provides methods to compute eigenvalues, eigenvectors, trace, and density of the Hessian
+    matrix using various methods such as power iteration, Hutchinson's method, and stochastic Lanczos algorithm.
+    It supports different model architectures and can be used with custom data loaders.
+    """
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        criterion: torch.nn.Module,
+        data: torch.utils.data.DataLoader,
+        device: DeviceStr,
+        hessian_generator=generic_generator,
+    ):
+        """Initializes the PyHessian class.
+
+        Args:
+            model (torch.nn.Module): The model for which the Hessian is computed.
+            criterion (torch.nn.Module): The loss function used for training the model.
+            data (torch.utils.data.DataLoader): DataLoader providing the training data.
+            device (DeviceStr): Device to run the computations on (e.g., 'cpu' or 'cuda').
+            hessian_generator (callable, optional): Function to generate per-sample gradients.
+                Defaults to generic_generator.
+        """
         self.model = model.eval()
         self.gen = hessian_generator
         self.params = [p for p in model.parameters()]
@@ -76,7 +124,15 @@ class PyHessian:
         self.data = data
         self.device = device
 
-    def dataloader_hv_product(self, v):
+    def dataloader_hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
+        """Computes the product of the Hessian-vector product (Hv) for the data in the dataloader.
+
+        Args:
+            v (list[torch.Tensor]): A list of tensors representing the vector to multiply with the Hessian.
+
+        Returns:
+            tuple: A tuple containing the eigenvalue (float) and the Hessian-vector product (list of tensors).
+        """
         THv = [torch.zeros(p.size()).to(self.device) for p in self.params]  # accumulate result
         num_data = 0
         for input_size, model in self.gen(self.model, self.criterion, self.data, self.device):
@@ -90,12 +146,23 @@ class PyHessian:
         eigenvalue = group_product(THv, v).cpu().item()
         return eigenvalue, THv
 
-    def eigenvalues(self, maxIter=100, tol=1e-3, top_n=1):
-        """
-        compute the top_n eigenvalues using power iteration method
-        maxIter: maximum iterations used to compute each single eigenvalue
-        tol: the relative tolerance between two consecutive eigenvalue computations from power iteration
-        top_n: top top_n eigenvalues will be computed
+    def eigenvalues(
+        self,
+        maxIter: int = 100,
+        tol: float = 1e-3,
+        top_n: int = 1,
+    ) -> tuple[list[float], list[list[torch.Tensor]]]:
+        """Computes the top_n eigenvalues using power iteration method.
+
+        Args:
+            maxIter (int, optional): Maximum iterations used to compute each single eigenvalue. Defaults to 100.
+            tol (float, optional): The relative tolerance between two consecutive eigenvalue computations
+                from power iteration. Defaults to 1e-3.
+            top_n (int, optional): The number of top eigenvalues to compute. Defaults to 1.
+
+        Returns:
+            tuple[list[float], list[list[torch.Tensor]]]: A tuple containing the eigenvalues and
+                their corresponding eigenvectors.
         """
         assert top_n >= 1
         device = self.device
@@ -130,11 +197,15 @@ class PyHessian:
 
         return eigenvalues, eigenvectors
 
-    def trace(self, maxIter=100, tol=1e-3):
-        """
-        compute the trace of hessian using Hutchinson's method
-        maxIter: maximum iterations used to compute trace
-        tol: the relative tolerance
+    def trace(self, maxIter: int = 100, tol: float = 1e-3) -> list[float]:
+        """Computes the trace of the Hessian using Hutchinson's method.
+
+        Args:
+            maxIter (int): Maximum iterations used to compute the trace. Defaults to 100.
+            tol (float): The relative tolerance for convergence. Defaults to 1e-3.
+
+        Returns:
+            list[float]: A list containing the trace of the Hessian computed over the iterations.
         """
         device = self.device
         trace_vhv = []
@@ -155,11 +226,17 @@ class PyHessian:
 
         return trace_vhv
 
-    def density(self, iter=100, n_v=1):
-        """
-        compute estimated eigenvalue density using stochastic lanczos algorithm (SLQ)
-        iter: number of iterations used to compute trace
-        n_v: number of SLQ runs
+    def density(self, iter: int = 100, n_v: int = 1) -> tuple[list[list[float]], list[list[float]]]:
+        """Computes the estimated eigenvalue density using the stochastic Lanczos algorithm (SLQ).
+
+        Args:
+            iter (int): Number of iterations used to compute the trace. Defaults to 100.
+            n_v (int): Number of SLQ runs. Defaults to 1.
+
+        Returns:
+            tuple[list[list[float]], list[list[float]]]: A tuple containing two lists:
+                - eigen_list_full: List of eigenvalues from each SLQ run.
+                - weight_list_full: List of weights corresponding to the eigenvalues.
         """
         device = self.device
         eigen_list_full = []
