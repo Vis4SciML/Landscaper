@@ -1,3 +1,5 @@
+"""This module contains for topological data analysis (TDA) of loss landscapes."""
+
 from typing import Literal
 
 import gudhi as gd
@@ -9,13 +11,13 @@ import topopy as tp
 
 
 def bottleneck_distance(p1: npt.ArrayLike, p2: npt.ArrayLike) -> float:
-    """
-    Calculates the bottleneck distance between two persistence diagrams.
-        Args:
-            persistence1 (list[float]): Persistence diagram values.
-            persistence2 (list[float]): Persistence diagram values.
+    """Calculates the bottleneck distance between two persistence diagrams.
 
-        Returns:
+    Args:
+        p1 (npt.ArrayLike): The first persistence diagram, represented as a 1D array of persistence values.
+        p2 (npt.ArrayLike): The second persistence diagram, represented as a 1D array of persistence values.
+
+    Returns:
             A float representing the bottleneck distance between the two diagrams.
     """
     ppd1 = [(0, val) for val in p1]
@@ -48,7 +50,8 @@ def merge_tree(
         loss (np.ArrayLike): Function values for each point in the space.
         coords (np.ArrayLike): N-dimensional array of ranges for each dimension in the space.
         graph (ngl.nglGraph): nglpy graph of the space (usually filled out by topopy).
-        direction (Literal[-1,1]): The direction to generate a merge tree for. -1 generates a merge tree for maxima, while the default value (1) is for minima.
+        direction (Literal[-1,1]): The direction to generate a merge tree for.
+            -1 generates a merge tree for maxima, while the default value (1) is for minima.
 
     Returns:
         Merge tree for the space.
@@ -82,7 +85,7 @@ def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
     """Converts a Topopy MergeTree to a networkx representation.
 
     Args:
-        mt (tp.MergeTree)
+        mt (tp.MergeTree): The merge tree to convert.
 
     Returns:
        A networkx Graph representation of the merge tree. Can be used for visualization and analysis.
@@ -95,10 +98,14 @@ def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
 
 
 def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
-    """Converts a merge tree to a directed graph representation that makes it easy to navigate the hierarchy. The root is the maximum which points down the tree towards saddles and minima. The 'partition' edge attributes list the members of the integral line from node a->b, while 'counts' contains the number of members along that line.
+    """Converts a merge tree to a directed graph representation that makes it easy to navigate the hierarchy.
+
+    The root is the maximum which points down the tree towards saddles and minima.
+    The 'partition' edge attributes list the members of the integral line from node a->b,
+    while 'counts' contains the number of members along that line.
 
     Args:
-        mt (tp.MergeTree):
+        mt (tp.MergeTree): The merge tree to convert.
 
     Returns:
         A networkx DiGraph representation of the merge tree hierarchy.
