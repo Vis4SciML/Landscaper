@@ -83,7 +83,7 @@ class PyHessian:
             params, gradsH = get_params_grad(model)
             model.zero_grad()
             Hv = torch.autograd.grad(gradsH, params, grad_outputs=v, retain_graph=False)
-            THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv)]
+            THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
             num_data += float(input_size)
 
         THv = [THv1 / float(num_data) for THv1 in THv]
@@ -110,7 +110,7 @@ class PyHessian:
             v = [torch.randn(p.size()).to(device) for p in self.params]  # generate random vector
             v = normalization(v)  # normalize the vector
 
-            for i in range(maxIter):
+            for _ in range(maxIter):
                 v = orthnormal(v, eigenvectors)
                 self.model.zero_grad()
 
@@ -140,7 +140,7 @@ class PyHessian:
         trace_vhv = []
         trace = 0.0
 
-        for i in range(maxIter):
+        for _ in range(maxIter):
             self.model.zero_grad()
             v = [torch.randint_like(p, high=2, device=device) for p in self.params]
             # generate Rademacher random variables
@@ -165,7 +165,7 @@ class PyHessian:
         eigen_list_full = []
         weight_list_full = []
 
-        for k in range(n_v):
+        for _ in range(n_v):
             v = [torch.randint_like(p, high=2, device=device) for p in self.params]
             # generate Rademacher random variables
             for v_i in v:
