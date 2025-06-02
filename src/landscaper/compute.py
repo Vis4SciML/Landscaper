@@ -1,3 +1,5 @@
+"""Module for computing loss landscapes for PyTorch models."""
+
 from collections.abc import Callable
 from itertools import product
 
@@ -11,48 +13,100 @@ from .utils import DeviceStr
 
 
 # Helper functions for loss landscape computation
-def get_model_parameters(model):
-    """Get model parameters as a list of tensors."""
+def get_model_parameters(model: torch.nn.Module) -> list[torch.Tensor]:
+    """Get model parameters as a list of tensors.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model whose parameters are to be retrieved.
+
+    Returns:
+        list[torch.Tensor]: List of model parameters.
+    """
     return [p.data for p in model.parameters()]
 
 
-def clone_parameters(parameters):
-    """Clone a list of parameters."""
+def clone_parameters(parameters: list[torch.Tensor]) -> list[torch.Tensor]:
+    """Clone model parameters to avoid modifying the original tensors.
+
+    Args:
+        parameters (list[torch.Tensor]): List of model parameters to clone.
+
+    Returns:
+        list[torch.Tensor]: List of cloned parameters.
+    """
     return [p.clone() for p in parameters]
 
 
-def add_direction(parameters, direction):
-    """Add a direction to parameters in-place."""
+def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+    """Add a direction to parameters in-place.
+
+    Args:
+        parameters (list[torch.Tensor]): List of model parameters to modify.
+        direction (list[torch.Tensor]): List of direction tensors to add to the parameters.
+    """
     for p, d in zip(parameters, direction, strict=False):
         p.add_(d)
 
 
-def sub_direction(parameters, direction):
-    """Subtract a direction from parameters in-place."""
+def sub_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+    """Subtract a direction from parameters in-place.
+
+    Args:
+        parameters (list[torch.Tensor]): List of model parameters to modify.
+        direction (list[torch.Tensor]): List of direction tensors to subtract from the parameters.
+    """
     for p, d in zip(parameters, direction, strict=False):
         p.sub_(d)
 
 
-def scale_direction(direction, scale):
-    """Scale a direction by a scalar."""
+def scale_direction(direction: list[torch.Tensor], scale: float) -> list[torch.Tensor]:
+    """Scale a direction by a given factor.
+
+    Args:
+        direction (list[torch.Tensor]): List of direction tensors to scale.
+        scale (float): Scaling factor.
+
+    Returns:
+        list[torch.Tensor]: Scaled direction tensors.
+    """
     for d in direction:
         d.mul_(scale)
     return direction
 
 
-def set_parameters(model, parameters):
-    """Set model parameters from a list of tensors."""
+def set_parameters(model: torch.nn.Module, parameters: list[torch.Tensor]) -> None:
+    """Set model parameters from a list of tensors.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model whose parameters are to be set.
+        parameters (list[torch.Tensor]): List of tensors to set as model parameters.
+    """
     for p, new_p in zip(model.parameters(), parameters, strict=False):
         p.data.copy_(new_p)
 
 
-def get_model_norm(parameters):
-    """Get L2 norm of parameters."""
+def get_model_norm(parameters: list[torch.Tensor]) -> float:
+    """Get L2 norm of parameters.
+
+    Args:
+        parameters (list[torch.Tensor]): List of model parameters.
+
+    Returns:
+        float: L2 norm of the model parameters.
+    """
     return torch.sqrt(sum((p**2).sum() for p in parameters))
 
 
-def normalize_direction(direction, parameters):
-    """Normalize a direction."""
+def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Tensor]) -> list[torch.Tensor]:
+    """Normalize a direction based on the number of parameters.
+
+    Args:
+        direction (list[torch.Tensor]): List of direction tensors to normalize.
+        parameters (list[torch.Tensor]): List of model parameters to use for normalization.
+
+    Returns:
+        list[torch.Tensor]: Normalized direction tensors.
+    """
     for d, p in zip(direction, parameters, strict=False):
         d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
     return direction
@@ -70,14 +124,14 @@ def compute_loss_landscape(
     batch_size: int = 10,
     device: DeviceStr = "cuda",
 ) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
-    """
-    Computes the loss landscape along the top-N eigenvector directions.
+    """Computes the loss landscape along the top-N eigenvector directions.
 
     Args:
         model (torch.nn.Module): The model to analyze.
         data (npt.ArrayLike): Data that will be used to evaluate the loss function for each point on the landscape.
         hessian_comp (PyHessian): PyHessian instance used for hessian computation.
-        loss_function (Callable[[torch.nn.Module, npt.ArrayLike], float]): Loss function for the model. Should take the model and data as input and return a float loss value.
+        loss_function (Callable[[torch.nn.Module, npt.ArrayLike], float]): Loss function for the model.
+            Should take the model and data as input and return a float loss value.
         top_n (int): Number of hessian eigenvalues to compute.
         steps (int): Number of steps in each dimension.
         distance (float): Total distance to travel in parameter space.
@@ -103,7 +157,8 @@ def compute_loss_landscape(
                 directions.append([v.clone() for v in top_eigenvectors[i]])
             else:
                 print(
-                    f"Warning: Requested dimension {dim} exceeds available eigenvectors ({len(top_eigenvectors)}). Using random direction for dimension {i + 1}"
+                    f"Warning: Requested dimension {dim} exceeds available eigenvectors ({len(top_eigenvectors)}). "
+                    f"Using random direction for dimension {i + 1}"
                 )
                 # Create a random direction if we don't have enough eigenvectors
                 random_dir = [torch.randn_like(p) for p in start_point]
@@ -206,7 +261,8 @@ def compute_loss_landscape(
 
         # Print statistics about the loss hypercube
         print(
-            f"Loss hypercube stats - min: {np.min(loss_hypercube)}, max: {np.max(loss_hypercube)}, mean: {np.mean(loss_hypercube)}"
+            f"Loss hypercube stats - min: {np.min(loss_hypercube)}, max: {np.max(loss_hypercube)}, "
+            f"mean: {np.mean(loss_hypercube)}"
         )
 
     except Exception as e:
