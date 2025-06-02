@@ -18,7 +18,7 @@ By uniting these aspects, Landscaper empowers users to gain a deeper, more holis
 
 ## Quick Start
 
-Check out the [quick start guide] for a step-by-step introduction to using Landscaper.
+Check out the [quick start guide](quickstart.md) for a step-by-step introduction to using Landscaper.
 
 ## Documentation
 The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples.
