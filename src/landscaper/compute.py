@@ -4,9 +4,9 @@ from itertools import product
 import numpy as np
 import numpy.typing as npt
 import torch
-from pyhessian.hessian import PyHessian
 from tqdm import tqdm
 
+from .hessian import PyHessian
 from .utils import DeviceStr
 
 
