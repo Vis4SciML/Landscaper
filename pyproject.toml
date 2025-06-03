@@ -61,7 +61,7 @@ package = true
 
 [tool.ruff]
 line-length = 120
-select = [
+lint.select = [
   "E",   # pycodestyle
   "F",   # pyflakes
   "UP",  # pyupgrade
