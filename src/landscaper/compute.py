@@ -1,5 +1,6 @@
 """Module for computing loss landscapes for PyTorch models."""
 
+import copy
 from collections.abc import Callable
 from itertools import product
 
@@ -8,7 +9,6 @@ import numpy.typing as npt
 import torch
 from tqdm import tqdm
 
-from .hessian import PyHessian
 from .utils import DeviceStr
 
 
@@ -37,7 +37,9 @@ def clone_parameters(parameters: list[torch.Tensor]) -> list[torch.Tensor]:
     return [p.clone() for p in parameters]
 
 
-def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+def add_direction(
+    parameters: list[torch.Tensor], direction: list[torch.Tensor]
+) -> None:
     """Add a direction to parameters in-place.
 
     Args:
@@ -48,7 +50,9 @@ def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor])
         p.add_(d)
 
 
-def sub_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+def sub_direction(
+    parameters: list[torch.Tensor], direction: list[torch.Tensor]
+) -> None:
     """Subtract a direction from parameters in-place.
 
     Args:
@@ -97,7 +101,9 @@ def get_model_norm(parameters: list[torch.Tensor]) -> float:
     return torch.sqrt(sum((p**2).sum() for p in parameters))
 
 
-def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Tensor]) -> list[torch.Tensor]:
+def normalize_direction(
+    direction: list[torch.Tensor], parameters: list[torch.Tensor]
+) -> list[torch.Tensor]:
     """Normalize a direction based on the number of parameters.
 
     Args:
@@ -108,18 +114,20 @@ def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Te
         list[torch.Tensor]: Normalized direction tensors.
     """
     for d, p in zip(direction, parameters, strict=False):
-        d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
+        d.mul_(
+            torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device))
+            / (d.norm() + 1e-10)
+        )
     return direction
 
 
 def compute_loss_landscape(
     model: torch.nn.Module,
     data: npt.ArrayLike,
-    hessian_comp: PyHessian,
+    dirs: npt.ArrayLike,
     loss_function: Callable[[torch.nn.Module, npt.ArrayLike], float],
-    top_n: int = 10,
     steps=41,
-    distance: float = 1.0,
+    distance: float = 0.01,
     dim: int = 3,
     batch_size: int = 10,
     device: DeviceStr = "cuda",
@@ -129,18 +137,15 @@ def compute_loss_landscape(
     Args:
         model (torch.nn.Module): The model to analyze.
         data (npt.ArrayLike): Data that will be used to evaluate the loss function for each point on the landscape.
-        hessian_comp (PyHessian): PyHessian instance used for hessian computation.
+        dirs (npt.ArrayLike): 2D array of directions to generate the landscape with.
         loss_function (Callable[[torch.nn.Module, npt.ArrayLike], float]): Loss function for the model.
             Should take the model and data as input and return a float loss value.
-        top_n (int): Number of hessian eigenvalues to compute.
         steps (int): Number of steps in each dimension.
-        distance (float): Total distance to travel in parameter space.
+        distance (float): Total distance to travel in parameter space. Setting this value too high may lead to unreliable results.
         dim (int): Number of dimensions for the loss landscape (default: 3)
         batch_size (int): Batch size used to compute each point on landscape.
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
     """
-    top_eigenvalues, top_eigenvectors = hessian_comp.eigenvalues(top_n=top_n)
-    print(f"Top {top_n} eigenvalues: {top_eigenvalues}")
 
     # Get starting parameters and save original weights
     with torch.no_grad():
@@ -151,24 +156,11 @@ def compute_loss_landscape(
         coordinates = [np.linspace(-distance, distance, steps) for _ in range(dim)]
 
         # Get top-N eigenvectors as directions
-        directions = []
-        for i in range(dim):
-            if i < len(top_eigenvectors):
-                directions.append([v.clone() for v in top_eigenvectors[i]])
-            else:
-                print(
-                    f"Warning: Requested dimension {dim} exceeds available eigenvectors ({len(top_eigenvectors)}). "
-                    f"Using random direction for dimension {i + 1}"
-                )
-                # Create a random direction if we don't have enough eigenvectors
-                random_dir = [torch.randn_like(p) for p in start_point]
-                # Make it orthogonal to previous directions (simplified Gram-Schmidt)
-                for prev_dir in directions:
-                    dot_product = sum((d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False))
-
-                    for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
-                        random_dir[j] = d1 - dot_product * d2
-                directions.append(random_dir)
+        directions = copy.deepcopy(dirs)
+        if dim > len(directions):
+            raise ValueError(
+                f"Requested dimension {dim} exceeds available directions ({len(directions)})."
+            )
 
         # Normalize all directions
         for i in range(dim):
@@ -200,8 +192,12 @@ def compute_loss_landscape(
 
             # For dimensions > 5, we'll likely run out of memory with a full grid
             if dim > 5:
-                print(f"Warning: High dimensionality ({dim}) may require significant memory and computation time.")
-                print(f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension.")
+                print(
+                    f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
+                )
+                print(
+                    f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
+                )
                 # For very high dimensions, we might want to do random sampling instead
 
             # Generate grid coordinates
@@ -215,7 +211,9 @@ def compute_loss_landscape(
             # Initialize counters for averaging
             loss_counts = np.zeros(loss_shape, dtype=int)
 
-            for batch_idx in tqdm(range(num_batches), desc=f"Computing {dim}D landscape"):
+            for batch_idx in tqdm(
+                range(num_batches), desc=f"Computing {dim}D landscape"
+            ):
                 batch_start = batch_idx * batch_size
                 batch_end = min((batch_idx + 1) * batch_size, len(grid_points))
                 current_batch = grid_points[batch_start:batch_end]
@@ -282,4 +280,4 @@ def compute_loss_landscape(
         neginf=np.nanmin(loss_hypercube[~np.isinf(loss_hypercube)]),
     )
 
-    return top_eigenvalues, top_eigenvectors, loss_hypercube, coordinates
+    return loss_hypercube, coordinates

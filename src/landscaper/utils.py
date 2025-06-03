@@ -11,6 +11,18 @@ DeviceStr = Literal["cuda", "cpu"]
 Number = int | float
 
 
+def add_random_orthogonal_direction(start_point, directions):
+    random_dir = [torch.randn_like(p) for p in start_point]
+    for prev_dir in directions:
+        dot_product = sum(
+            (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False)
+        )
+
+        for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
+            random_dir[j] = d1 - dot_product * d2
+    directions.append(random_dir)
+
+
 def group_product(xs: list[torch.Tensor], ys: list[torch.Tensor]) -> torch.Tensor:
     """Computes the dot product of two lists of tensors.
 
@@ -24,7 +36,9 @@ def group_product(xs: list[torch.Tensor], ys: list[torch.Tensor]) -> torch.Tenso
     return sum([torch.sum(x * y) for (x, y) in zip(xs, ys, strict=False)])
 
 
-def group_add(params: list[torch.Tensor], update: list[torch.Tensor], alpha: float = 1) -> list[torch.Tensor]:
+def group_add(
+    params: list[torch.Tensor], update: list[torch.Tensor], alpha: float = 1
+) -> list[torch.Tensor]:
     """Adds the update to the parameters with a scaling factor alpha.
 
     Params = params + update*alpha
@@ -58,7 +72,9 @@ def normalization(v: list[torch.Tensor]) -> list[torch.Tensor]:
     return v
 
 
-def get_params_grad(model: torch.nn.Module) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+def get_params_grad(
+    model: torch.nn.Module,
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
     """Get model parameters and corresponding gradients.
 
     Args:
@@ -77,25 +93,6 @@ def get_params_grad(model: torch.nn.Module) -> tuple[list[torch.Tensor], list[to
         params.append(param)
         grads.append(0.0 if param.grad is None else param.grad + 0.0)
     return params, grads
-
-
-def hessian_vector_product(
-    gradsH: list[torch.Tensor],
-    params: list[torch.Tensor],
-    v: list[torch.Tensor],
-) -> list[torch.Tensor]:
-    """Compute the Hessian-vector product of Hv.
-
-    Args:
-        gradsH (list[torch.Tensor]): Gradient of the loss with respect to the parameters.
-        params (list[torch.Tensor]): Model parameters.
-        v (list[torch.Tensor]): Vector to multiply with the Hessian.
-
-    Returns:
-        list[torch.Tensor]: The Hessian-vector product Hv.
-    """
-    hv = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True, retain_graph=True)
-    return hv
 
 
 def orthnormal(w: list[torch.Tensor], v_list: list[torch.Tensor]) -> list[torch.Tensor]:

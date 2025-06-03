@@ -1,4 +1,5 @@
 """PyHessian Hessian module."""
+
 # @file Different utility functions
 # Copyright (c) Zhewei Yao, Amir Gholami
 # All rights reserved.
@@ -18,7 +19,8 @@
 # along with PyHessian.  If not, see <http://www.gnu.org/licenses/>.
 # *
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from typing import Any
 
 import numpy as np
 import torch
@@ -36,7 +38,7 @@ from .utils import (
 def generic_generator(
     model: torch.nn.Module,
     criterion: torch.nn.Module,
-    data: torch.utils.data.DataLoader,
+    data: Any,
     device: DeviceStr,
 ) -> Generator[tuple[int, torch.nn.Module], None, None]:
     """Calculates the per-sample gradient for most Pytorch models that implement `backward`.
@@ -47,7 +49,7 @@ def generic_generator(
     Args:
         model (torch.nn.Module): The model to calculate per-sample gradients for.
         criterion (torch.nn.Module): Function that calculates the loss for the model.
-        data (torch.utils.data.DataLoader): Source of data for the model.
+        data (Any): Source of data for the model.
         device (DeviceStr): Device used for pyTorch calculations.
 
     Yields:
@@ -65,8 +67,8 @@ def generic_generator(
 
 def dimenet_generator(
     model: torch.nn.Module,
-    criterion: torch.nn.Module,
-    data: torch.utils.data.DataLoader,
+    criterion: torch.nn.Module | torch.Tensor,
+    data: Any,
     device: DeviceStr,
 ) -> Generator[tuple[int, torch.nn.Module], None, None]:
     """Calculates the per-sample gradient for DimeNet models.
@@ -74,7 +76,7 @@ def dimenet_generator(
     Args:
         model (torch.nn.Module): The DimeNet model to calculate per-sample gradients for.
         criterion (torch.nn.Module): Function that calculates the loss for the model.
-        data (torch.utils.data.DataLoader): Source of data for the model.
+        data (Any): Source of data for the model.
         device (DeviceStr): Device used for pyTorch calculations.
 
     Yields:
@@ -102,10 +104,13 @@ class PyHessian:
     def __init__(
         self,
         model: torch.nn.Module,
-        criterion: torch.nn.Module,
-        data: torch.utils.data.DataLoader,
+        criterion: torch.nn.Module | torch.Tensor,
+        data: Any,
         device: DeviceStr,
-        hessian_generator=generic_generator,
+        hessian_generator: Callable[
+            [torch.nn.Module, torch.nn.Module | torch.Tensor, Any, DeviceStr],
+            Generator[tuple[int, torch.nn.Module], None, None],
+        ] = generic_generator,
     ):
         """Initializes the PyHessian class.
 
@@ -117,15 +122,23 @@ class PyHessian:
             hessian_generator (callable, optional): Function to generate per-sample gradients.
                 Defaults to generic_generator.
         """
-        self.model = model.eval()
+
+        if model.training:
+            print(
+                "Setting model to eval mode. PyHessian will not work with models in training mode!"
+            )
+            self.model = model.eval()
+        else:
+            self.model = model
+
         self.gen = hessian_generator
         self.params = [p for p in model.parameters()]
         self.criterion = criterion
         self.data = data
         self.device = device
 
-    def dataloader_hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
-        """Computes the product of the Hessian-vector product (Hv) for the data in the dataloader.
+    def hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
+        """Computes the product of the Hessian-vector product (Hv) for the data.
 
         Args:
             v (list[torch.Tensor]): A list of tensors representing the vector to multiply with the Hessian.
@@ -133,13 +146,20 @@ class PyHessian:
         Returns:
             tuple: A tuple containing the eigenvalue (float) and the Hessian-vector product (list of tensors).
         """
-        THv = [torch.zeros(p.size()).to(self.device) for p in self.params]  # accumulate result
+        THv = [
+            torch.zeros(p.size()).to(self.device) for p in self.params
+        ]  # accumulate result
         num_data = 0
-        for input_size, model in self.gen(self.model, self.criterion, self.data, self.device):
+        for input_size, model in self.gen(
+            self.model, self.criterion, self.data, self.device
+        ):
             params, gradsH = get_params_grad(model)
             model.zero_grad()
-            Hv = torch.autograd.grad(gradsH, params, grad_outputs=v, retain_graph=False)
-            THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
+            Hv = torch.autograd.grad(gradsH, params, grad_outputs=v, retain_graph=True)
+            THv = [
+                THv1 + Hv1 * float(input_size) + 0.0
+                for THv1, Hv1 in zip(THv, Hv, strict=False)
+            ]
             num_data += float(input_size)
 
         THv = [THv1 / float(num_data) for THv1 in THv]
@@ -164,7 +184,7 @@ class PyHessian:
             tuple[list[float], list[list[torch.Tensor]]]: A tuple containing the eigenvalues and
                 their corresponding eigenvectors.
         """
-        assert top_n >= 1
+        assert top_n >= 1 and not self.model.training
         device = self.device
 
         eigenvalues = []
@@ -174,20 +194,25 @@ class PyHessian:
 
         while computed_dim < top_n:
             eigenvalue = None
-            v = [torch.randn(p.size()).to(device) for p in self.params]  # generate random vector
+            v = [
+                torch.randn(p.size()).to(device) for p in self.params
+            ]  # generate random vector
             v = normalization(v)  # normalize the vector
 
             for _ in range(maxIter):
                 v = orthnormal(v, eigenvectors)
                 self.model.zero_grad()
 
-                tmp_eigenvalue, Hv = self.dataloader_hv_product(v)
+                tmp_eigenvalue, Hv = self.hv_product(v)
                 v = normalization(Hv)
 
                 if eigenvalue is None:
                     eigenvalue = tmp_eigenvalue
                 else:
-                    if abs(eigenvalue - tmp_eigenvalue) / (abs(eigenvalue) + 1e-6) < tol:
+                    if (
+                        abs(eigenvalue - tmp_eigenvalue) / (abs(eigenvalue) + 1e-6)
+                        < tol
+                    ):
                         break
                     else:
                         eigenvalue = tmp_eigenvalue
@@ -207,6 +232,8 @@ class PyHessian:
         Returns:
             list[float]: A list containing the trace of the Hessian computed over the iterations.
         """
+        assert not self.model.training
+
         device = self.device
         trace_vhv = []
         trace = 0.0
@@ -217,7 +244,7 @@ class PyHessian:
             # generate Rademacher random variables
             for v_i in v:
                 v_i[v_i == 0] = -1
-            _, Hv = self.dataloader_hv_product(v)
+            _, Hv = self.hv_product(v)
             trace_vhv.append(group_product(Hv, v).cpu().item())
             if abs(np.mean(trace_vhv) - trace) / (abs(trace) + 1e-6) < tol:
                 return trace_vhv
@@ -226,7 +253,9 @@ class PyHessian:
 
         return trace_vhv
 
-    def density(self, iter: int = 100, n_v: int = 1) -> tuple[list[list[float]], list[list[float]]]:
+    def density(
+        self, iter: int = 100, n_v: int = 1
+    ) -> tuple[list[list[float]], list[list[float]]]:
         """Computes the estimated eigenvalue density using the stochastic Lanczos algorithm (SLQ).
 
         Args:
@@ -238,6 +267,8 @@ class PyHessian:
                 - eigen_list_full: List of eigenvalues from each SLQ run.
                 - weight_list_full: List of weights corresponding to the eigenvalues.
         """
+        assert not self.model.training
+
         device = self.device
         eigen_list_full = []
         weight_list_full = []
@@ -259,7 +290,7 @@ class PyHessian:
                 self.model.zero_grad()
                 w_prime = [torch.zeros(p.size()).to(device) for p in self.params]
                 if i == 0:
-                    _, w_prime = self.dataloader_hv_product(v)
+                    _, w_prime = self.hv_product(v)
                     alpha = group_product(w_prime, v)
                     alpha_list.append(alpha.cpu().item())
                     w = group_add(w_prime, v, alpha=-alpha)
@@ -276,7 +307,7 @@ class PyHessian:
                         w = [torch.randn(p.size()).to(device) for p in self.params]
                         v = orthnormal(w, v_list)
                         v_list.append(v)
-                    _, w_prime = self.dataloader_hv_product(v)
+                    _, w_prime = self.hv_product(v)
                     alpha = group_product(w_prime, v)
                     alpha_list.append(alpha.cpu().item())
                     w_tmp = group_add(w_prime, v, alpha=-alpha)
