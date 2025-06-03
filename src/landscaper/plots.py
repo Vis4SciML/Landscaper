@@ -394,9 +394,9 @@ def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)
             linewidth=0.5,
         )
 
-    ax.ylabel("Density", fontsize=12, fontweight="bold")
-    ax.xlabel("Eigenvalue", fontsize=12, fontweight="bold")
-    ax.title(
+    ax.set_ylabel("Density", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Eigenvalue", fontsize=12, fontweight="bold")
+    ax.set_title(
         "Hessian Eigenvalue Density Distribution",
         fontsize=14,
         fontweight="bold",
@@ -411,7 +411,7 @@ def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)
         ax.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
 
     ax.grid(True, linestyle="--", alpha=0.7)
-    ax.tight_layout()
+    plt.tight_layout()
     plt.show()
 
 
@@ -432,15 +432,15 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
     colors = ["#2E86C1" if val >= 0 else "#E74C3C" for val in top_eigenvalues]
     bars = ax.bar(indices, top_eigenvalues, color=colors, width=0.7)
 
-    # Add value labels on top of each bar
+    # Add value labels on top of the bars
     for bar in bars:
-        height = bar.get_height()
+        yval = bar.get_height()
         ax.text(
-            bar.get_x() + bar.get_width() / 2.0,
-            height + (5 if height >= 0 else -15),
-            f"{height:.2f}",
+            bar.get_x() + bar.get_width() / 2,
+            yval + 0.01 * abs(yval),
+            f"{yval:.3f}",
             ha="center",
-            va="bottom" if height >= 0 else "top",
+            va="bottom" if yval >= 0 else "top",
             fontsize=10,
             fontweight="bold",
         )
@@ -454,7 +454,7 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
         pad=15,
     )
     # Improve x-axis ticks
-    ax.xticks(indices, [f"{i + 1}" for i in indices], fontsize=10)
+    ax.set_xticks(indices, [f"{i + 1}" for i in indices], fontsize=10)
 
     # Add horizontal line at y=0 with better styling
     ax.axhline(y=0, color="black", linestyle="-", alpha=0.2, zorder=0)
@@ -475,5 +475,5 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
     )
 
     # Adjust layout
-    ax.tight_layout()
+    plt.tight_layout()
     plt.show()
