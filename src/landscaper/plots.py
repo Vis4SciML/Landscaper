@@ -1,3 +1,5 @@
+"""Plots for visualizing topological data analysis results."""
+
 from collections.abc import Callable
 from typing import TypedDict
 
@@ -15,13 +17,12 @@ from .tda import get_persistence_dict
 from .utils import Number
 
 
-def persistence_barcode(msc: tp.MorseSmaleComplex):
+def persistence_barcode(msc: tp.MorseSmaleComplex) -> None:
     """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode)  for a Morse-Smale complex.
 
     Args:
         msc (tp.MorseSmaleComplex): A Morse-Smale complex.
     """
-
     node_list = [str(node) for node in list(get_persistence_dict(msc).keys())]
     persistence_list = list(get_persistence_dict(msc).values())
     plt.barh(node_list, persistence_list)
@@ -31,7 +32,7 @@ def persistence_barcode(msc: tp.MorseSmaleComplex):
     plt.show()
 
 
-def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number):
+def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number) -> Callable[[Number], Number]:
     """Creates a linear scale that maps [min_val, max_val] -> [new_min, new_max]; similar to d3's `linearScale`.
 
     Args:
@@ -47,6 +48,13 @@ def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Numb
 
 
 class AxisOptions(TypedDict):
+    """Options for the Y axis of the topology profile.
+
+    Attributes:
+        tick_format (Callable[[float], str]): Function to format the tick labels.
+        font_size (int): Font size for the tick labels.
+    """
+
     tick_format: Callable[[float], str]
     font_size: int
 
@@ -64,8 +72,11 @@ def topology_profile(
     background_color: str = "white",
     gradient: bool = True,
     y_axis: AxisOptions | None = default_axis,
-):
-    """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
+) -> dw.Drawing:
+    """Renders a topological profile.
+
+    Renders a topological profile for the given merge tree data
+    extracted with `extract_merge_tree` from `landscaper.tda`.
 
     Args:
         data (List[List[float]]): The merge tree data.
@@ -75,7 +86,9 @@ def topology_profile(
         margin (int): Size of the margins in pixels.
         color (str): Color used to draw the profile.
         background_color (str): Color used to draw the background.
-        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`. If false, only uses `color` to fill the path. Set this to false if you are exporting the drawing into a different format.
+        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`.
+            If false, only uses `color` to fill the path. Set this to false if you are
+            exporting the drawing into a different format.
         y_axis (AxisOptions): Sets options for the Y axis. Set to None to disable.
     """
     # TODO: validate profile data
@@ -169,13 +182,13 @@ def topology_profile(
     return svg
 
 
-def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
+def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)) -> None:
     """Draws a contour plot from the provided coordinates and values.
 
     Args:
         coordinates (npt.ArrayLike): n-dimensional coordinates.
-        values (npt.ArrayLike): Value for each coordinate.
-        figsize (tuple[int,int]): Size of the figure.
+        loss (npt.ArrayLike): Value for each coordinate.
+        figsize (tuple[int, int]): Size of the figure.
 
     Raises:
         ValueError: Raised if rendering fails.
@@ -300,6 +313,13 @@ def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, i
 
 
 def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)):
+    """Plots the density distribution of Hessian eigenvalues.
+
+    Args:
+        eigen (npt.ArrayLike): Array of Hessian eigenvalues.
+        weight (npt.ArrayLike): Corresponding weights for the eigenvalues.
+        figsize (tuple[int, int]): Size of the figure.
+    """
     density_eigen = np.array(eigen)
     density_weight = np.array(weight)
 
@@ -396,6 +416,12 @@ def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)
 
 
 def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
+    """Plots the top-10 Hessian eigenvalues as an enhanced bar chart.
+
+    Args:
+        top_eigenvalues (npt.ArrayLike): Array of top-10 Hessian eigenvalues.
+        figsize (tuple[int, int]): Size of the figure.
+    """
     # Plot the top-10 eigenvalues as an enhanced bar chart
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
