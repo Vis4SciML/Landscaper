@@ -1284,6 +1284,7 @@ dev = [
     { name = "jupyter" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-dependency" },
     { name = "pytest-html" },
     { name = "ruff" },
 ]
@@ -1317,6 +1318,7 @@ dev = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "mypy", specifier = ">=1.16.0" },
     { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-dependency", specifier = ">=0.6.0" },
     { name = "pytest-html", specifier = ">=4.1.1" },
     { name = "ruff", specifier = ">=0.11.12" },
 ]
@@ -2420,6 +2422,16 @@ sdist = { url = "https://files.pythonhosted.org/packages/ae/3c/c9d525a414d506893
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/3d/64ad57c803f1fa1e963a7946b6e0fea4a70df53c1a7fed304586539c2bac/pytest-8.3.5-py3-none-any.whl", hash = "sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820", size = 343634, upload-time = "2025-03-02T12:54:52.069Z" },
 ]
+
+[[package]]
+name = "pytest-dependency"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/3b/317cc04e77d707d338540ca67b619df8f247f3f4c9f40e67bf5ea503ad94/pytest-dependency-0.6.0.tar.gz", hash = "sha256:934b0e6a39d95995062c193f7eaeed8a8ffa06ff1bcef4b62b0dc74a708bacc1", size = 19499, upload-time = "2023-12-31T20:38:54.991Z" }
 
 [[package]]
 name = "pytest-html"
