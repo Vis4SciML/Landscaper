@@ -17,7 +17,6 @@ dependencies = [
     "pandas>=2.2.3",
     "topopy>=1.0.4",
     "treelib>=1.7.1",
-    "pyhessian",
     "coloraide>=4.6",
     "tqdm>=4.67.1",
     "drawsvg>=2.4.0",
