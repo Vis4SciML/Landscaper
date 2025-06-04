@@ -1,4 +1,7 @@
-"""Plots for visualizing topological data analysis results."""
+"""Plots for visualizing topological data analysis results.
+TODO: get rid of plt.show calls so that users can pick between saving the figure & displaying it interactively
+
+"""
 
 from collections.abc import Callable
 from typing import TypedDict

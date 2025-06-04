@@ -1,14 +1,9 @@
-import base64
-
 import pytest
 import pytest_html
 
 from landscaper.plots import topology_profile
 from landscaper.topology_profile import generate_profile
-
-
-def svg_to_str(svg):
-    return f"data:image/svg+xml;base64,{base64.b64encode(svg.as_svg().encode('utf-8')).decode('utf-8')}"
+from utils import svg_to_str
 
 
 @pytest.fixture
