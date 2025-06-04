@@ -4,7 +4,9 @@ Before Landscaper can compute a loss landscape for your model, you will need to 
     
 1. A generator function for PyHessian that calculates per-sample gradients for your dataset
     
-2. A function that calculates the loss of your entire dataset. Leaving these functions as input parameters allows Landscaper to work with a wide range of models with minimal tinkering.
+2. A function that calculates the loss of your entire dataset. 
+
+Leaving these functions as input parameters allows Landscaper to work with a wide range of models with minimal tinkering.
 
 ## PyHessian
 We begin our loss landscape analysis by importing the `LossLandscape` and `PyHessian` classes and building a calculator object for the Hessian. 
@@ -13,14 +15,14 @@ We begin our loss landscape analysis by importing the `LossLandscape` and `PyHes
 from torch import nn, Tensor
 from landscaper import LossLandscape, PyHessian
 
-model: nn.Module = nn.Sequential(
+model = nn.Sequential(
     nn.Linear(10, 5),
     nn.ReLU(),
     nn.Linear(5, 2)
 )
-criterion: nn.Module = nn.CrossEntropyLoss()
-data: Tensor = Tensor([[0.1]*10, [0.2]*10])  # Example input data
-device: str = 'cpu'  # or 'cuda' if you have a GPU
+criterion = nn.CrossEntropyLoss()
+data = Tensor([[0.1]*10, [0.2]*10])  # Example input data
+device = 'cpu'  # or 'cuda' if you have a GPU
 
 # Create a Hessian calculator
 hessian_comp = PyHessian(model, criterion, data, device)
@@ -78,7 +80,7 @@ def loss_function(model: nn.Module, data: Tensor) -> float:
     return total
 ```
 
-# Computing the Loss Landscape
+## Computing the Loss Landscape
 
 The function should take your model and data and return a total loss. With these elements in place, we can finally call `compute`:
 
@@ -94,4 +96,4 @@ landscape = LossLandscape.compute(
 ```
 This will compute the loss landscape for your model using the provided data and hessian calculator. The `dim` parameter specifies the dimensionality of the perturbation space (2 for 2D landscapes, 3 for 3D landscapes, etc.).
 
-# Visualizing the Landscape
+## Visualizing the Landscape

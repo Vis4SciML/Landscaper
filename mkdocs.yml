@@ -72,6 +72,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Quick Start: quickstart.md
   - Examples:
       - Recurrent Neural Network (RNN): './notebooks/rnn.ipynb'
       - Convolutional Neural Network (CNN): './notebooks/cnn.ipynb'
