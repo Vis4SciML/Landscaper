@@ -13,6 +13,7 @@ import numpy.typing as npt
 import topopy as tp
 from coloraide import Color
 from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from scipy.interpolate import interp1d
 
@@ -20,18 +21,27 @@ from .tda import get_persistence_dict
 from .utils import Number
 
 
-def persistence_barcode(msc: tp.MorseSmaleComplex) -> None:
+def persistence_barcode(
+    msc: tp.MorseSmaleComplex, show: bool = True, figsize: tuple[int, int] = (12, 6)
+) -> None | Figure:
     """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode)  for a Morse-Smale complex.
 
     Args:
         msc (tp.MorseSmaleComplex): A Morse-Smale complex.
+        show (bool): Shows the plot if true, otherwise returns the figure.
+        figsize (tuple[int,int]): Size of the figure.
     """
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
     node_list = [str(node) for node in list(get_persistence_dict(msc).keys())]
     persistence_list = list(get_persistence_dict(msc).values())
-    plt.barh(node_list, persistence_list)
-    plt.xlabel("Persistence")
-    plt.ylabel("Node")
-    plt.title("Node vs Persistence")
+    ax.barh(node_list, persistence_list)
+    ax.set_xlabel("Persistence")
+    ax.set_ylabel("Node")
+    ax.set_title("Node vs Persistence")
+
+    if not show:
+        return fig
     plt.show()
 
 
@@ -185,7 +195,12 @@ def topology_profile(
     return svg
 
 
-def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)) -> None:
+def contour(
+    coordinates: npt.ArrayLike,
+    loss: npt.ArrayLike,
+    show: bool = True,
+    figsize: tuple[int, int] = (12, 8),
+) -> None | Figure:
     """Draws a contour plot from the provided coordinates and values.
 
     Args:
@@ -267,15 +282,24 @@ def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int,
     ax1.set_title("Loss Landscape Contour", fontsize=14)
     ax1.grid(True, linestyle="--", alpha=0.3)
     ax1.axis("equal")
+
+    if not show:
+        return fig
     plt.show()
 
 
-def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
+def surface_3d(
+    coords: npt.ArrayLike,
+    loss: npt.ArrayLike,
+    show: bool = True,
+    figsize: tuple[int, int] = (12, 8),
+) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
     Args:
         coords (npt.ArrayLike): 2-D coordinates.
         loss (npt.ArrayLike): Values for the coordinates.
+        show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int,int]): Size of the figure.
     """
     # Create 3D surface plot
@@ -312,15 +336,19 @@ def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, i
 
     # Adjust the viewing angle for better visualization
     ax.view_init(elev=30, azim=45)
+
+    if not show:
+        return fig
     plt.show()
 
 
-def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)):
+def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
     """Plots the density distribution of Hessian eigenvalues.
 
     Args:
         eigen (npt.ArrayLike): Array of Hessian eigenvalues.
         weight (npt.ArrayLike): Corresponding weights for the eigenvalues.
+        show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int, int]): Size of the figure.
     """
     density_eigen = np.array(eigen)
@@ -415,14 +443,18 @@ def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, figsize=(12, 6)
 
     ax.grid(True, linestyle="--", alpha=0.7)
     plt.tight_layout()
+
+    if not show:
+        return fig
     plt.show()
 
 
-def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
+def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
     """Plots the top-10 Hessian eigenvalues as an enhanced bar chart.
 
     Args:
         top_eigenvalues (npt.ArrayLike): Array of top-10 Hessian eigenvalues.
+        show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int, int]): Size of the figure.
     """
     # Plot the top-10 eigenvalues as an enhanced bar chart
@@ -479,4 +511,6 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, figsize=(12, 6)):
 
     # Adjust layout
     plt.tight_layout()
+    if not show:
+        return fig
     plt.show()

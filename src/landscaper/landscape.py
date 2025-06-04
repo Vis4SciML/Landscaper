@@ -60,9 +60,7 @@ class LossLandscape:
         self.loss = loss
         # converts meshgrid output of arbitrary dimensions into list of coordinates
         grid = np.meshgrid(*ranges)
-        self.coords = np.array(
-            [list(z) for z in zip(*(x.flat for x in grid), strict=False)]
-        )
+        self.coords = np.array([list(z) for z in zip(*(x.flat for x in grid), strict=False)])
 
         if self.coords.shape[0] != np.multiply.reduce(self.loss.shape):
             raise ValueError(
@@ -103,9 +101,7 @@ class LossLandscape:
             A tp.MergeTree object corresponding to the maxima of the loss landscape.
         """
         if self.super_tree is None:
-            self.super_tree = merge_tree(
-                self.loss, self.coords, self.graph, direction=-1
-            )
+            self.super_tree = merge_tree(self.loss, self.coords, self.graph, direction=-1)
         return self.super_tree
 
     def get_ms_complex(self) -> tp.MorseSmaleComplex:
@@ -115,9 +111,7 @@ class LossLandscape:
             A tp.MorseSmaleComplex.
         """
         if self.ms_complex is None:
-            ms_complex = tp.MorseSmaleComplex(
-                graph=self.graph, gradient="steepest", normalization="feature"
-            )
+            ms_complex = tp.MorseSmaleComplex(graph=self.graph, gradient="steepest", normalization="feature")
             ms_complex.build(np.array(self.coords), self.loss.flatten())
             self.ms_complex = ms_complex
         return self.ms_complex
@@ -152,9 +146,7 @@ class LossLandscape:
         if self.dims == 2:
             return surface_3d(self.ranges, self.loss, **kwargs)
         else:
-            raise ValueError(
-                f"Cannot visualize a landscape with {self.dims} dimensions."
-            )
+            raise ValueError(f"Cannot visualize a landscape with {self.dims} dimensions.")
 
     def show_profile(self, **kwargs):
         """Renders the topological profile of the landscape.
@@ -170,15 +162,15 @@ class LossLandscape:
 
         See :obj:`landscaper.plots.contour` for more details.
         """
-        return contour(self.ranges, self.loss)
+        return contour(self.ranges, self.loss, **kwargs)
 
-    def show_persistence_barcode(self):
+    def show_persistence_barcode(self, **kwargs):
         """Renders the persistence barcode of the landscape.
 
         See :obj:`landscaper.plots.persistence_barcode` for more details.
         """
         msc = self.get_ms_complex()
-        return persistence_barcode(msc)
+        return persistence_barcode(msc, **kwargs)
 
     def smad(self) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
