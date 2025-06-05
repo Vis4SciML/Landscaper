@@ -13,8 +13,6 @@ from landscaper.hessian import PyHessian
 from landscaper.landscape import LossLandscape
 from resnet import resnet50
 
-# prevents issues with multiple files being open
-torch.multiprocessing.set_sharing_strategy("file_system")
 test_dir = os.path.dirname(__file__)
 resnet_weight_path = os.path.join(
     test_dir, "cifar10_models", "state_dicts", "resnet50.pt"
@@ -22,10 +20,14 @@ resnet_weight_path = os.path.join(
 
 
 def pytest_sessionstart(session):
+    # prevents issues with multiple files being open
+    torch.multiprocessing.set_sharing_strategy("file_system")
+
     # check if state_dicts are downloaded
     directory_to_extract_to = os.path.join(test_dir, "cifar10_models")
 
     if not os.path.exists(resnet_weight_path):
+        print("Downloading weights for resnet50...")
         # downloads cifar10 weights for resnet
         # from https://github.com/huyvnphan/PyTorch_CIFAR10/tree/master
         url = (
@@ -54,6 +56,16 @@ def pytest_sessionstart(session):
             zip_ref.extractall(directory_to_extract_to)
             print("Unzip file successful!")
 
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    print("Finished model setup.")
+
+
+@pytest.fixture(scope="session")
+def torch_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 @pytest.fixture
 def landscape_2d():
@@ -61,21 +73,23 @@ def landscape_2d():
     rng = np.random.default_rng(123456)
 
     ranges = [np.linspace(-1, 1, 10) for x in range(2)]
-    loss = rng.random((50, 2))
+    loss = rng.random([10] * 2)
 
     return LossLandscape(loss, ranges)
 
 
 @pytest.fixture(scope="session")
-def resnet_50():
+def resnet_50(torch_device):
     model = resnet50()
-    state_dict = torch.load(resnet_weight_path, map_location="cpu")
+    state_dict = torch.load(resnet_weight_path, map_location=torch_device)
     model.load_state_dict(state_dict)
+    model.to(torch_device)
+
     return model.eval()
 
 
 @pytest.fixture(scope="session")
-def cifar10_test():
+def cifar10_test(torch_device):
     t = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )
@@ -90,10 +104,8 @@ def cifar10_test():
 
     data = []
     for idx, d in enumerate(testloader):
-        data.append(d)
-        if idx > 5:
-            break
-
+        x, y = d
+        data.append((x.to(torch_device), y.to(torch_device)))
     return data
 
 
@@ -103,12 +115,12 @@ def resnet_criterion():
 
 
 @pytest.fixture(scope="session")
-def hessian_comp(resnet_50, cifar10_test, resnet_criterion):
+def hessian_comp(resnet_50, cifar10_test, resnet_criterion, torch_device):
     return PyHessian(
         resnet_50,
         resnet_criterion,
         cifar10_test,
-        "cpu",
+        torch_device,
     )
 
 

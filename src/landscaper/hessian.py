@@ -27,7 +27,6 @@ import torch
 
 from .utils import (
     DeviceStr,
-    get_params_grad,
     group_add,
     group_product,
     normalization,
@@ -40,11 +39,11 @@ def generic_generator(
     criterion: torch.nn.Module,
     data: Any,
     device: DeviceStr,
-) -> Generator[tuple[int, torch.nn.Module], None, None]:
-    """Calculates the per-sample gradient for most Pytorch models that implement `backward`.
+) -> Generator[tuple[int, torch.Tensor], None, None]:
+    """Calculates the per-sample gradient for the model.
 
     Default implementation used for PyHessian; the underlying code expects that this generator
-    returns the size of the input and a pointer to the model at each step.
+    returns the size of the input and the gradient tensor at each step.
 
     Args:
         model (torch.nn.Module): The model to calculate per-sample gradients for.
@@ -53,16 +52,38 @@ def generic_generator(
         device (DeviceStr): Device used for pyTorch calculations.
 
     Yields:
-        The size of the current input (int) and the model.
+        The size of the current input (int) and the gradient for that sample.
     """
+    params = [p for p in model.parameters() if p.requires_grad]
+    model.zero_grad()  # clear gradients in case they were accumulated
+
     for inputs, targets in data:
-        model.zero_grad()  # clear gradients
         input_size = inputs.size(0)
 
-        outputs = model(inputs.to(device))
-        loss = criterion(outputs, targets.to(device))
-        loss.backward(create_graph=True)
-        yield input_size, model
+        # don't use .to(device) here to avoid memory leaks
+        outputs = model.forward(inputs)
+        loss = criterion(outputs, targets)
+        # instead of loss.backward we directly compute the gradient to avoid overwriting the gradient in place
+        grads = torch.autograd.grad(loss, params, create_graph=True)
+        yield input_size, grads
+
+
+"""
+def generic_generator_reverse_over_forward(
+    model: torch.nn.Module, criterion: torch.nn.Module, data: Any, device: DeviceStr, v
+) -> Generator[tuple[int, torch.Tensor], None, None]:
+    grads = []
+    for (inputs, targets), vv in zip(data, v):
+        input_size = inputs.size(0)
+        jvp_func = lambda x: torch.func.jvp(
+            lambda xx: criterion(model.forward(xx), targets),
+            (x,),
+            (vv,),
+        )[1]
+        grads.append(torch.func.grad(jvp_func)(inputs))
+
+    yield input_size, grads
+"""
 
 
 def dimenet_generator(
@@ -70,7 +91,7 @@ def dimenet_generator(
     criterion: torch.nn.Module | torch.Tensor,
     data: Any,
     device: DeviceStr,
-) -> Generator[tuple[int, torch.nn.Module], None, None]:
+) -> Generator[tuple[int, torch.Tensor], None, None]:
     """Calculates the per-sample gradient for DimeNet models.
 
     Args:
@@ -80,17 +101,18 @@ def dimenet_generator(
         device (DeviceStr): Device used for pyTorch calculations.
 
     Yields:
-        The size of the current input (int) and the model.
+        The size of the current input (int) and the gradient.
     """
+    params = [p for p in model.parameters() if p.requires_grad]
+    model.zero_grad()  # clear gradients in case they were accumulated
+
     for batch in data:
-        model.zero_grad()
-        batch = batch.to(device)
         input_size = len(batch)
 
         # Compute loss using test_step which is consistent with how the model is used
         loss = model.test_step(batch, 0, None)
-        loss.backward(create_graph=True)
-        yield input_size, model
+        grads = torch.autograd.grad(loss, params, create_graph=True)
+        yield input_size, grads
 
 
 class PyHessian:
@@ -108,8 +130,8 @@ class PyHessian:
         data: Any,
         device: DeviceStr,
         hessian_generator: Callable[
-            [torch.nn.Module, torch.nn.Module | torch.Tensor, Any, DeviceStr],
-            Generator[tuple[int, torch.nn.Module], None, None],
+            [torch.nn.Module, torch.nn.Module | torch.Tensor, Any, DeviceStr, Any],
+            Generator[tuple[int, torch.Tensor], None, None],
         ] = generic_generator,
     ):
         """Initializes the PyHessian class.
@@ -132,10 +154,19 @@ class PyHessian:
             self.model = model
 
         self.gen = hessian_generator
-        self.params = [p for p in model.parameters()]
+        self.params = [p for p in model.parameters() if p.requires_grad]
         self.criterion = criterion
         self.data = data
         self.device = device
+
+        """
+        grad_cache = []
+        for input_size, grads in self.gen(
+            self.model, self.criterion, self.data, self.device
+        ):
+            grad_cache.append((input_size, grads))
+        self.grad_cache = grad_cache
+        """
 
     def hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
         """Computes the product of the Hessian-vector product (Hv) for the data.
@@ -150,18 +181,16 @@ class PyHessian:
             torch.zeros(p.size()).to(self.device) for p in self.params
         ]  # accumulate result
         num_data = 0
-        for input_size, model in self.gen(
+        THv = None
+        for input_size, grads in self.gen(
             self.model, self.criterion, self.data, self.device
         ):
-            params, gradsH = get_params_grad(model)
-            model.zero_grad()
-            Hv = torch.autograd.grad(gradsH, params, grad_outputs=v, retain_graph=True)
+            Hv = torch.autograd.grad(grads, self.params, grad_outputs=v)
             THv = [
                 THv1 + Hv1 * float(input_size) + 0.0
                 for THv1, Hv1 in zip(THv, Hv, strict=False)
             ]
             num_data += float(input_size)
-
         THv = [THv1 / float(num_data) for THv1 in THv]
         eigenvalue = group_product(THv, v).cpu().item()
         return eigenvalue, THv
@@ -186,7 +215,6 @@ class PyHessian:
         """
         assert top_n >= 1 and not self.model.training
         device = self.device
-
         eigenvalues = []
         eigenvectors = []
 

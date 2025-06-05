@@ -1,12 +1,13 @@
 import pytest
 import pytest_html
-from utils import svg_to_str
+from utils import svg_to_str, mpl_fig_to_report
 
 from landscaper import LossLandscape
 
 
-@pytest.mark.dependency()
-def test_compute(resnet_50, cifar10_test, hessian_eigenvecs, resnet_criterion, extras):
+def test_compute(
+    resnet_50, cifar10_test, torch_device, hessian_eigenvecs, resnet_criterion, extras
+):
     def loss_function(model, data):
         batch_loss = 0
         for d in data:
@@ -17,6 +18,7 @@ def test_compute(resnet_50, cifar10_test, hessian_eigenvecs, resnet_criterion, e
         return batch_loss
 
     evals, evecs = hessian_eigenvecs
+    print(evals)
 
     ls = LossLandscape.compute(
         resnet_50,
@@ -24,11 +26,17 @@ def test_compute(resnet_50, cifar10_test, hessian_eigenvecs, resnet_criterion, e
         evecs,
         loss_function,
         dim=2,
-        device="cpu",
+        device=torch_device,
     )
 
     # draw some plots for visual inspection
     svg = ls.show_profile()
     extras.append(pytest_html.extras.svg(svg_to_str(svg)))
 
-    # TODO: add other plots
+    ls.save("resnet50.npz")
+
+    surf = ls.show(show=False)
+    mpl_fig_to_report(surf, extras)
+
+    ctr = ls.show_contour(show=False)
+    mpl_fig_to_report(ctr, extras)

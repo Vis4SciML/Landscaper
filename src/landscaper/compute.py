@@ -37,7 +37,9 @@ def clone_parameters(parameters: list[torch.Tensor]) -> list[torch.Tensor]:
     return [p.clone() for p in parameters]
 
 
-def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+def add_direction(
+    parameters: list[torch.Tensor], direction: list[torch.Tensor]
+) -> None:
     """Add a direction to parameters in-place.
 
     Args:
@@ -48,7 +50,9 @@ def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor])
         p.add_(d)
 
 
-def sub_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
+def sub_direction(
+    parameters: list[torch.Tensor], direction: list[torch.Tensor]
+) -> None:
     """Subtract a direction from parameters in-place.
 
     Args:
@@ -97,7 +101,9 @@ def get_model_norm(parameters: list[torch.Tensor]) -> float:
     return torch.sqrt(sum((p**2).sum() for p in parameters))
 
 
-def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Tensor]) -> list[torch.Tensor]:
+def normalize_direction(
+    direction: list[torch.Tensor], parameters: list[torch.Tensor]
+) -> list[torch.Tensor]:
     """Normalize a direction based on the number of parameters.
 
     Args:
@@ -108,7 +114,10 @@ def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Te
         list[torch.Tensor]: Normalized direction tensors.
     """
     for d, p in zip(direction, parameters, strict=False):
-        d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
+        d.mul_(
+            torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device))
+            / (d.norm() + 1e-10)
+        )
     return direction
 
 
@@ -149,7 +158,9 @@ def compute_loss_landscape(
         # Get top-N eigenvectors as directions
         directions = copy.deepcopy(dirs)
         if dim > len(directions):
-            raise ValueError(f"Requested dimension {dim} exceeds available directions ({len(directions)}).")
+            raise ValueError(
+                f"Requested dimension {dim} exceeds available directions ({len(directions)})."
+            )
 
         # Normalize all directions
         for i in range(dim):
@@ -181,8 +192,12 @@ def compute_loss_landscape(
 
             # For dimensions > 5, we'll likely run out of memory with a full grid
             if dim > 5:
-                print(f"Warning: High dimensionality ({dim}) may require significant memory and computation time.")
-                print(f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension.")
+                print(
+                    f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
+                )
+                print(
+                    f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
+                )
                 # For very high dimensions, we might want to do random sampling instead
 
             # Generate grid coordinates
@@ -196,7 +211,9 @@ def compute_loss_landscape(
             # Initialize counters for averaging
             loss_counts = np.zeros(loss_shape, dtype=int)
 
-            for batch_idx in tqdm(range(num_batches), desc=f"Computing {dim}D landscape"):
+            for batch_idx in tqdm(
+                range(num_batches), desc=f"Computing {dim}D landscape"
+            ):
                 batch_start = batch_idx * batch_size
                 batch_end = min((batch_idx + 1) * batch_size, len(grid_points))
                 current_batch = grid_points[batch_start:batch_end]
