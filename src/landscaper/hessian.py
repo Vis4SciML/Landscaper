@@ -64,7 +64,9 @@ def generic_generator(
         outputs = model.forward(inputs)
         loss = criterion(outputs, targets)
         # instead of loss.backward we directly compute the gradient to avoid overwriting the gradient in place
-        grads = torch.autograd.grad(loss, params, create_graph=True)
+        grads = torch.autograd.grad(
+            loss, params, create_graph=True, materialize_grads=True
+        )
         yield input_size, grads
 
 
@@ -181,7 +183,6 @@ class PyHessian:
             torch.zeros(p.size()).to(self.device) for p in self.params
         ]  # accumulate result
         num_data = 0
-        THv = None
         for input_size, grads in self.gen(
             self.model, self.criterion, self.data, self.device
         ):
