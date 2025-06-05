@@ -180,3 +180,4 @@ cython_debug/
 .vscode
 
 tests/cifar10*
+report.html

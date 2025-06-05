@@ -1,9 +1,9 @@
 import pytest
 import pytest_html
+from utils import svg_to_str
 
 from landscaper.plots import topology_profile
 from landscaper.topology_profile import generate_profile
-from utils import svg_to_str
 
 
 @pytest.fixture
