@@ -41,7 +41,7 @@ def pytest_sessionstart(session):
         block_size = 2**20  # Mebibyte
         t = tqdm(total=total_size, unit="MiB", unit_scale=True)
 
-        with open("state_dicts.zip", "wb") as f:
+        with open(f"{test_dir}/state_dicts.zip", "wb") as f:
             for data in r.iter_content(block_size):
                 t.update(len(data))
                 f.write(data)
