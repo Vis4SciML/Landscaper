@@ -163,6 +163,8 @@ class PyHessian:
                 grad_cache.append((input_size, grads))
             self.grad_cache = grad_cache
             self.gen = lambda *args: (x for x in self.grad_cache)
+        else:
+            self.grad_cache = None
 
     def hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
         """Computes the product of the Hessian-vector product (Hv) for the data.
@@ -176,7 +178,7 @@ class PyHessian:
         THv = [torch.zeros(p.size()).to(self.device) for p in self.params]  # accumulate result
         num_data = 0
         for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
-            Hv = torch.autograd.backward(
+            Hv = torch.autograd.grad(
                 grads,
                 self.params,
                 grad_outputs=v,
@@ -184,6 +186,7 @@ class PyHessian:
             )
             THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
             num_data += float(input_size)
+
         THv = [THv1 / float(num_data) for THv1 in THv]
         eigenvalue = group_product(THv, v).cpu().item()
         return eigenvalue, THv
