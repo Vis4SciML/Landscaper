@@ -131,6 +131,7 @@ class PyHessian:
             [torch.nn.Module, torch.nn.Module | torch.Tensor, Any, DeviceStr, Any],
             Generator[tuple[int, torch.Tensor], None, None],
         ] = generic_generator,
+        try_cache=False,
     ):
         """Initializes the PyHessian class.
 
@@ -141,6 +142,7 @@ class PyHessian:
             device (DeviceStr): Device to run the computations on (e.g., 'cpu' or 'cuda').
             hessian_generator (callable, optional): Function to generate per-sample gradients.
                 Defaults to generic_generator.
+            try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs. Should make the computation faster, but can cause out of memory errors. If you run into memory problems, try setting this to false first.
         """
 
         if model.training:
@@ -155,14 +157,12 @@ class PyHessian:
         self.data = data
         self.device = device
 
-        """
-        grad_cache = []
-        for input_size, grads in self.gen(
-            self.model, self.criterion, self.data, self.device
-        ):
-            grad_cache.append((input_size, grads))
-        self.grad_cache = grad_cache
-        """
+        if try_cache:
+            grad_cache = []
+            for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
+                grad_cache.append((input_size, grads))
+            self.grad_cache = grad_cache
+            self.gen = lambda *args: (x for x in self.grad_cache)
 
     def hv_product(self, v: list[torch.Tensor]) -> tuple[float, list[torch.Tensor]]:
         """Computes the product of the Hessian-vector product (Hv) for the data.
@@ -176,7 +176,12 @@ class PyHessian:
         THv = [torch.zeros(p.size()).to(self.device) for p in self.params]  # accumulate result
         num_data = 0
         for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
-            Hv = torch.autograd.grad(grads, self.params, grad_outputs=v)
+            Hv = torch.autograd.backward(
+                grads,
+                self.params,
+                grad_outputs=v,
+                retain_graph=self.grad_cache is not None,
+            )
             THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
             num_data += float(input_size)
         THv = [THv1 / float(num_data) for THv1 in THv]
