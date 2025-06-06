@@ -38,23 +38,30 @@ def my_hessian_generator(
     device: str
 ) -> Generator[Tuple[int, nn.Module]]:
     """
-    An optional generator function that yields the size of the input and a pointer to the model.
+    A generator function that yields the size of each input sample and its gradient.
 
     Args:
         model (nn.Module): The model for which to compute the Hessian.
-        criterion (nn.Module): The loss function used to compute gradients.
+        criterion (nn.Module): The loss function, used to compute gradients.
         data (Tensor): The input data for the model.
         device (str): The device on which the model is located ('cpu' or 'cuda').
     
     Yields:
-        Tuple[int, nn.Module]: A tuple containing the size of the input and a pointer to the model.
+        Tuple[int, nn.Module]: A tuple containing the size of the input and the gradient of each sample.
     """
-    for sample in data:
-        sample = sample.to(device)
-        yield sample.size(0), model
+    params = [p for p in model.parameters() if p.requires_grad]
+
+    for sample, target in data: 
+        outputs = model.forward(sample)
+        loss = criterion(outputs, targets) 
+        
+        grads = torch.autograd.grad(
+            loss, params, create_graph=True, materialize_grads=True
+        )
+        yield sample.size(0), grads
 ```
 
-where the gradient is saved in the model's parameters (the default uses `backward`) and each iteration yields the size of the input and a pointer to the model.
+where each iteration yields the size of the input and the gradient of the loss. Most of the time, you will only need to change how the loss is being calculated or how the data is being accessed.
 
 ## Defining a Loss Function
 Once our hessian calculator is set up, we have to define a loss function for our model to be used when parameters are perturbed. Here's an example implementation:
