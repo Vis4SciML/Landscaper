@@ -21,7 +21,7 @@ By uniting these aspects, Landscaper empowers users to gain a deeper, more holis
 Check out the [quick start guide](quickstart.md) for a step-by-step introduction to using Landscaper.
 
 ## Documentation
-The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples.
+The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples. You can build the docs locally by installing the `docs` extras and then running `mkdocs serve`.
 
 ## Installation
 Landscaper is available on [PyPI](https://pypi.org/project/landscaper/), making it easy to install and integrate into your projects.
