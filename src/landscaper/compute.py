@@ -13,7 +13,7 @@ from .utils import DeviceStr
 
 
 # Helper functions for loss landscape computation
-def get_model_parameters(model: torch.nn.Module) -> list[torch.Tensor]:
+def get_model_parameters(model: torch.nn.Module, as_complex) -> list[torch.Tensor]:
     """Get model parameters as a list of tensors.
 
     Args:
@@ -22,10 +22,17 @@ def get_model_parameters(model: torch.nn.Module) -> list[torch.Tensor]:
     Returns:
         list[torch.Tensor]: List of model parameters.
     """
-    return [p.data for p in model.parameters()]
+    params = [p.data for p in model.parameters()]
+
+    if as_complex:
+        params = [
+            torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p
+            for p in params
+        ]
+    return params
 
 
-def clone_parameters(parameters: list[torch.Tensor]) -> list[torch.Tensor]:
+def clone_parameters(parameters: list[torch.Tensor], as_complex) -> list[torch.Tensor]:
     """Clone model parameters to avoid modifying the original tensors.
 
     Args:
@@ -34,7 +41,15 @@ def clone_parameters(parameters: list[torch.Tensor]) -> list[torch.Tensor]:
     Returns:
         list[torch.Tensor]: List of cloned parameters.
     """
-    return [p.clone() for p in parameters]
+
+    params = [p.clone() for p in parameters]
+
+    if as_complex:
+        params = [
+            torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p
+            for p in params
+        ]
+    return params
 
 
 def add_direction(
@@ -86,6 +101,8 @@ def set_parameters(model: torch.nn.Module, parameters: list[torch.Tensor]) -> No
         parameters (list[torch.Tensor]): List of tensors to set as model parameters.
     """
     for p, new_p in zip(model.parameters(), parameters, strict=False):
+        if not torch.is_complex(p):
+            new_p = new_p.real
         p.data.copy_(new_p)
 
 
@@ -126,11 +143,12 @@ def compute_loss_landscape(
     data: npt.ArrayLike,
     dirs: npt.ArrayLike,
     loss_function: Callable[[torch.nn.Module, npt.ArrayLike], float],
-    steps=41,
+    steps: int = 41,
     distance: float = 0.01,
     dim: int = 3,
     batch_size: int = 10,
     device: DeviceStr = "cuda",
+    use_complex: bool = False,
 ) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
     """Computes the loss landscape along the top-N eigenvector directions.
 
@@ -145,6 +163,7 @@ def compute_loss_landscape(
         dim (int): Number of dimensions for the loss landscape (default: 3)
         batch_size (int): Batch size used to compute each point on landscape.
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
+        use_complex (bool): Computes Landscape using complex numbers if this is set to true; use if your directions are complex.
     """
 
     # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
@@ -153,10 +172,19 @@ def compute_loss_landscape(
 
     coordinates = [np.linspace(-distance, distance, steps) for _ in range(dim)]
 
+    # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
+    if dim > 5:
+        print(
+            f"Warning: {dim} dimensions may require significant memory and computation time."
+        )
+        print(
+            f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
+        )
+
     with torch.no_grad():
         # Get starting parameters and save original weights
-        start_point = get_model_parameters(model)
-        original_weights = clone_parameters(start_point)
+        start_point = get_model_parameters(model, use_complex)
+        original_weights = clone_parameters(start_point, use_complex)
 
         # Get top-N eigenvectors as directions
         directions = copy.deepcopy(dirs)
@@ -175,24 +203,6 @@ def compute_loss_landscape(
             dir_norm = get_model_norm(directions[i])
             scale_direction(directions[i], ((model_norm * distance) / steps) / dir_norm)
 
-        # Move start point to corner (lowest point in all dimensions)
-        current_point = clone_parameters(original_weights)
-        for i in range(dim):
-            scaled_dir = clone_parameters(directions[i])
-            scale_direction(scaled_dir, steps / 2)
-            sub_direction(current_point, scaled_dir)
-            # Rescale direction vectors for stepping
-            scale_direction(directions[i], 2.0 / steps)
-
-        # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
-        if dim > 5:
-            print(
-                f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
-            )
-            print(
-                f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
-            )
-
         # Generate grid coordinates
         grid_points = list(product(range(steps), repeat=dim))
         print(f"Computing {len(grid_points)} points in {dim}D space...")
@@ -201,7 +211,7 @@ def compute_loss_landscape(
         try:
             for gp in tqdm(grid_points, desc=f"Computing {dim}D landscape"):
                 # Create a new parameter set for this grid point
-                point_params = clone_parameters(current_point)
+                point_params = clone_parameters(original_weights, use_complex)
 
                 # Move to the specified grid point by adding appropriate steps in each direction
                 for dim_idx, point_idx in enumerate(gp):
@@ -217,7 +227,6 @@ def compute_loss_landscape(
                 # Set model parameters
                 set_parameters(model, point_params)
                 loss = loss_function(model, data)
-
                 loss_hypercube[gp] = loss
 
                 # Clear GPU memory

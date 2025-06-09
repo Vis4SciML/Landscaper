@@ -62,6 +62,7 @@ def generic_generator(
         # don't use .to(device) here to avoid memory leaks
         outputs = model.forward(sample)
         loss = criterion(outputs, target)
+
         # instead of loss.backward we directly compute the gradient to avoid overwriting the gradient in place
         grads = torch.autograd.grad(
             loss, params, create_graph=True, materialize_grads=True
@@ -85,6 +86,15 @@ def generic_generator_reverse_over_forward(
 
     yield input_size, grads
 """
+
+
+def is_model_complex(model):
+    for p in model.parameters():
+        if torch.is_complex(p):
+            return True
+        if torch.any(p < 0):
+            return True
+    return False
 
 
 def dimenet_generator(
@@ -133,7 +143,8 @@ class PyHessian:
             [torch.nn.Module, torch.nn.Module | torch.Tensor, Any, DeviceStr, Any],
             Generator[tuple[int, torch.Tensor], None, None],
         ] = generic_generator,
-        try_cache=False,
+        try_cache: bool = False,
+        use_complex: bool = False,
     ):
         """Initializes the PyHessian class.
 
@@ -145,6 +156,7 @@ class PyHessian:
             hessian_generator (callable, optional): Function to generate per-sample gradients.
                 Defaults to generic_generator.
             try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs. Should make the computation faster, but can cause out of memory errors. If you run into memory problems, try setting this to false first.
+            use_complex (bool): Defaults to false. Forces the calculator to use complex values when performing computations. This is determined automatically, but this kwarg is included as a backup.
         """
 
         if model.training:
@@ -160,6 +172,12 @@ class PyHessian:
         self.criterion = criterion
         self.data = data
         self.device = device
+        self.use_complex = is_model_complex(self.model) or use_complex
+
+        if self.use_complex:
+            print(
+                "Negative or complex parameters detected in model. Results will be complex tensors."
+            )
 
         if try_cache:
             grad_cache = []
@@ -181,19 +199,35 @@ class PyHessian:
         Returns:
             tuple: A tuple containing the eigenvalue (float) and the Hessian-vector product (list of tensors).
         """
-        THv = [
-            torch.zeros(p.size()).to(self.device) for p in self.params
-        ]  # accumulate result
+        THv = [torch.zeros_like(p) for p in self.params]  # accumulate result
+
+        if self.use_complex:
+            THv = [
+                torch.complex(t, t.clone()) if not torch.is_complex(t) else t
+                for t in THv
+            ]
+
         num_data = 0
         for input_size, grads in self.gen(
             self.model, self.criterion, self.data, self.device
         ):
+            if self.use_complex:
+                grads = [
+                    (
+                        torch.complex(g, torch.zeros_like(g))
+                        if not torch.is_complex(g)
+                        else g
+                    )
+                    for g in grads
+                ]
+
             Hv = torch.autograd.grad(
                 grads,
                 self.params,
                 grad_outputs=v,
                 retain_graph=self.grad_cache is not None,
             )
+
             THv = [
                 THv1 + Hv1 * float(input_size) + 0.0
                 for THv1, Hv1 in zip(THv, Hv, strict=False)
@@ -235,6 +269,17 @@ class PyHessian:
                 v = [
                     torch.randn(p.size()).to(device) for p in self.params
                 ]  # generate random vector
+
+                if self.use_complex:
+                    v = [
+                        (
+                            torch.complex(vv, torch.randn(vv.size()).to(device))
+                            if not torch.is_complex(vv)
+                            else vv
+                        )
+                        for vv in v
+                    ]
+
                 v = normalization(v)  # normalize the vector
 
                 ibar = tqdm(range(maxIter), total=maxIter, desc="Iteration")
@@ -281,6 +326,17 @@ class PyHessian:
 
         for _ in range(maxIter):
             v = [torch.randint_like(p, high=2, device=device) for p in self.params]
+
+            if self.use_complex:
+                v = [
+                    (
+                        torch.complex(vv, torch.randint_like(vv, high=2, device=device))
+                        if not torch.is_complex(vv)
+                        else vv
+                    )
+                    for vv in v
+                ]
+
             # generate Rademacher random variables
             for v_i in v:
                 v_i[v_i == 0] = -1
@@ -315,6 +371,17 @@ class PyHessian:
 
         for _ in range(n_v):
             v = [torch.randint_like(p, high=2, device=device) for p in self.params]
+
+            if self.use_complex:
+                v = [
+                    (
+                        torch.complex(vv, torch.randint_like(vv, high=2, device=device))
+                        if not torch.is_complex(vv)
+                        else vv
+                    )
+                    for vv in v
+                ]
+
             # generate Rademacher random variables
             for v_i in v:
                 v_i[v_i == 0] = -1
