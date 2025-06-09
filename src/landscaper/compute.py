@@ -147,13 +147,16 @@ def compute_loss_landscape(
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
     """
 
-    # Get starting parameters and save original weights
+    # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
+    loss_shape = tuple([steps] * dim)
+    loss_hypercube = np.zeros(loss_shape)
+
+    coordinates = [np.linspace(-distance, distance, steps) for _ in range(dim)]
+
     with torch.no_grad():
+        # Get starting parameters and save original weights
         start_point = get_model_parameters(model)
         original_weights = clone_parameters(start_point)
-
-    try:
-        coordinates = [np.linspace(-distance, distance, steps) for _ in range(dim)]
 
         # Get top-N eigenvectors as directions
         directions = copy.deepcopy(dirs)
@@ -181,73 +184,48 @@ def compute_loss_landscape(
             # Rescale direction vectors for stepping
             scale_direction(directions[i], 2.0 / steps)
 
-        # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
-        loss_shape = tuple([steps] * dim)
-        loss_hypercube = np.zeros(loss_shape)
-
         # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
-        with torch.no_grad():
-            # For very high dimensions, we'll need to be smarter about traversal
-            # Rather than recursive approach, use an iterative approach with mesh grid
+        if dim > 5:
+            print(
+                f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
+            )
+            print(
+                f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
+            )
 
-            # For dimensions > 5, we'll likely run out of memory with a full grid
-            if dim > 5:
-                print(
-                    f"Warning: High dimensionality ({dim}) may require significant memory and computation time."
-                )
-                print(
-                    f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
-                )
-                # For very high dimensions, we might want to do random sampling instead
+        # Generate grid coordinates
+        grid_points = list(product(range(steps), repeat=dim))
+        print(f"Computing {len(grid_points)} points in {dim}D space...")
 
-            # Generate grid coordinates
+        center_idx = steps // 2
+        try:
+            for gp in tqdm(grid_points, desc=f"Computing {dim}D landscape"):
+                # Create a new parameter set for this grid point
+                point_params = clone_parameters(current_point)
 
-            grid_points = list(product(range(steps), repeat=dim))
-            print(f"Computing {len(grid_points)} points in {dim}D space...")
+                # Move to the specified grid point by adding appropriate steps in each direction
+                for dim_idx, point_idx in enumerate(gp):
+                    steps_from_center = point_idx - center_idx
 
-            # Batch processing for efficiency - compute multiple grid points at once
-            num_batches = (len(grid_points) + batch_size - 1) // batch_size
-
-            # Initialize counters for averaging
-            loss_counts = np.zeros(loss_shape, dtype=int)
-
-            for batch_idx in tqdm(
-                range(num_batches), desc=f"Computing {dim}D landscape"
-            ):
-                batch_start = batch_idx * batch_size
-                batch_end = min((batch_idx + 1) * batch_size, len(grid_points))
-                current_batch = grid_points[batch_start:batch_end]
-
-                for grid_point in current_batch:
-                    # Create a new parameter set for this grid point
-                    point_params = clone_parameters(current_point)
-
-                    # Move to the specified grid point by adding appropriate steps in each direction
-                    for dim_idx, steps_in_dim in enumerate(grid_point):
-                        for _ in range(steps_in_dim):
+                    if steps_from_center > 0:
+                        for _ in range(steps_from_center):
                             add_direction(point_params, directions[dim_idx])
+                    elif steps_from_center < 0:
+                        for _ in range(steps_from_center):
+                            sub_direction(point_params, directions[dim_idx])
 
-                    # Set model parameters and compute loss
-                    set_parameters(model, point_params)
-                    with torch.no_grad():
-                        loss = loss_function(model, data)
+                # Set model parameters
+                set_parameters(model, point_params)
+                loss = loss_function(model, data)
 
-                    # Accumulate loss and increment counter for averaging
-                    loss_hypercube[grid_point] += loss.item()
-                    loss_counts[grid_point] += 1
+                loss_hypercube[gp] = loss
 
                 # Clear GPU memory
-                if batch_idx % 5 == 0 and device == "cuda":
+                if gp[0] % 5 == 0 and device == "cuda" and all(x == 0 for x in gp[1:]):
                     torch.cuda.empty_cache()
-
-            # Compute averages
-            with np.errstate(divide="ignore", invalid="ignore"):
-                loss_hypercube = np.divide(
-                    loss_hypercube,
-                    loss_counts,
-                    where=loss_counts != 0,
-                    out=np.zeros_like(loss_hypercube),
-                )
+        finally:
+            # Restore original weights
+            set_parameters(model, original_weights)
 
         # Handle extreme values in loss surface
         loss_hypercube = np.nan_to_num(
@@ -262,22 +240,5 @@ def compute_loss_landscape(
             f"Loss hypercube stats - min: {np.min(loss_hypercube)}, max: {np.max(loss_hypercube)}, "
             f"mean: {np.mean(loss_hypercube)}"
         )
-
-    except Exception as e:
-        print(f"Error during loss landscape computation: {e}.")
-        import traceback
-
-        traceback.print_exc()
-    finally:
-        # Restore original weights
-        set_parameters(model, original_weights)
-
-    # Handle extreme values in loss surface
-    loss_hypercube = np.nan_to_num(
-        loss_hypercube,
-        nan=np.nanmean(loss_hypercube),
-        posinf=np.nanmax(loss_hypercube[~np.isinf(loss_hypercube)]),
-        neginf=np.nanmin(loss_hypercube[~np.isinf(loss_hypercube)]),
-    )
 
     return loss_hypercube, coordinates

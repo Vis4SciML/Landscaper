@@ -11,16 +11,19 @@ DeviceStr = Literal["cuda", "cpu"]
 Number = int | float
 
 
-def add_random_orthogonal_direction(start_point, directions):
-    random_dir = [torch.randn_like(p) for p in start_point]
-    for prev_dir in directions:
-        dot_product = sum(
-            (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False)
-        )
+def generate_random_orthogonal_directions(model, n=3):
+    directions = []
+    while len(directions) != n:
+        random_dir = [torch.randn_like(p.data) for p in model.parameters()]
+        for prev_dir in directions:
+            dot_product = sum(
+                (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False)
+            )
 
-        for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
-            random_dir[j] = d1 - dot_product * d2
-    directions.append(random_dir)
+            for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
+                random_dir[j] = d1 - dot_product * d2
+        directions.append(random_dir)
+    return directions
 
 
 def group_product(xs: list[torch.Tensor], ys: list[torch.Tensor]) -> torch.Tensor:

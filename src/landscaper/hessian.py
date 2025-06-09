@@ -33,6 +33,8 @@ from .utils import (
     orthnormal,
 )
 
+from tqdm import tqdm
+
 
 def generic_generator(
     model: torch.nn.Module,
@@ -55,14 +57,15 @@ def generic_generator(
         The size of the current input (int) and the gradient for that sample.
     """
     params = [p for p in model.parameters() if p.requires_grad]
-    model.zero_grad()  # clear gradients in case they were accumulated
 
     for sample, target in data:
         # don't use .to(device) here to avoid memory leaks
         outputs = model.forward(sample)
         loss = criterion(outputs, target)
         # instead of loss.backward we directly compute the gradient to avoid overwriting the gradient in place
-        grads = torch.autograd.grad(loss, params, create_graph=True, materialize_grads=True)
+        grads = torch.autograd.grad(
+            loss, params, create_graph=True, materialize_grads=True
+        )
         yield sample.size(0), grads
 
 
@@ -102,7 +105,6 @@ def dimenet_generator(
         The size of the current input (int) and the gradient.
     """
     params = [p for p in model.parameters() if p.requires_grad]
-    model.zero_grad()  # clear gradients in case they were accumulated
 
     for batch in data:
         input_size = len(batch)
@@ -146,7 +148,9 @@ class PyHessian:
         """
 
         if model.training:
-            print("Setting model to eval mode. PyHessian will not work with models in training mode!")
+            print(
+                "Setting model to eval mode. PyHessian will not work with models in training mode!"
+            )
             self.model = model.eval()
         else:
             self.model = model
@@ -159,7 +163,9 @@ class PyHessian:
 
         if try_cache:
             grad_cache = []
-            for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
+            for input_size, grads in self.gen(
+                self.model, self.criterion, self.data, self.device
+            ):
                 grad_cache.append((input_size, grads))
             self.grad_cache = grad_cache
             self.gen = lambda *args: (x for x in self.grad_cache)
@@ -175,16 +181,23 @@ class PyHessian:
         Returns:
             tuple: A tuple containing the eigenvalue (float) and the Hessian-vector product (list of tensors).
         """
-        THv = [torch.zeros(p.size()).to(self.device) for p in self.params]  # accumulate result
+        THv = [
+            torch.zeros(p.size()).to(self.device) for p in self.params
+        ]  # accumulate result
         num_data = 0
-        for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
+        for input_size, grads in self.gen(
+            self.model, self.criterion, self.data, self.device
+        ):
             Hv = torch.autograd.grad(
                 grads,
                 self.params,
                 grad_outputs=v,
                 retain_graph=self.grad_cache is not None,
             )
-            THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
+            THv = [
+                THv1 + Hv1 * float(input_size) + 0.0
+                for THv1, Hv1 in zip(THv, Hv, strict=False)
+            ]
             num_data += float(input_size)
 
         THv = [THv1 / float(num_data) for THv1 in THv]
@@ -214,30 +227,39 @@ class PyHessian:
         eigenvalues = []
         eigenvectors = []
 
-        computed_dim = 0
+        with tqdm(total=top_n, desc="Eigenvectors computed") as pbar:
+            computed_dim = 0
 
-        while computed_dim < top_n:
-            eigenvalue = None
-            v = [torch.randn(p.size()).to(device) for p in self.params]  # generate random vector
-            v = normalization(v)  # normalize the vector
+            while computed_dim < top_n:
+                eigenvalue = None
+                v = [
+                    torch.randn(p.size()).to(device) for p in self.params
+                ]  # generate random vector
+                v = normalization(v)  # normalize the vector
 
-            for _ in range(maxIter):
-                v = orthnormal(v, eigenvectors)
-                self.model.zero_grad()
+                ibar = tqdm(range(maxIter), total=maxIter, desc="Iteration")
+                for _ in ibar:
+                    v = orthnormal(v, eigenvectors)
 
-                tmp_eigenvalue, Hv = self.hv_product(v)
-                v = normalization(Hv)
+                    tmp_eigenvalue, Hv = self.hv_product(v)
+                    v = normalization(Hv)
 
-                if eigenvalue is None:
-                    eigenvalue = tmp_eigenvalue
-                else:
-                    if abs(eigenvalue - tmp_eigenvalue) / (abs(eigenvalue) + 1e-6) < tol:
-                        break
-                    else:
+                    if eigenvalue is None:
                         eigenvalue = tmp_eigenvalue
-            eigenvalues.append(eigenvalue)
-            eigenvectors.append(v)
-            computed_dim += 1
+                    else:
+                        spec_gap = abs(eigenvalue - tmp_eigenvalue) / (
+                            abs(eigenvalue) + 1e-6
+                        )
+                        ibar.set_description(f"Err: {spec_gap}")
+                        if spec_gap < tol:
+                            break
+                        else:
+                            eigenvalue = tmp_eigenvalue
+                eigenvalues.append(eigenvalue)
+                eigenvectors.append(v)
+                computed_dim += 1
+
+                pbar.update(1)
 
         return eigenvalues, eigenvectors
 
@@ -258,7 +280,6 @@ class PyHessian:
         trace = 0.0
 
         for _ in range(maxIter):
-            self.model.zero_grad()
             v = [torch.randint_like(p, high=2, device=device) for p in self.params]
             # generate Rademacher random variables
             for v_i in v:
@@ -272,7 +293,9 @@ class PyHessian:
 
         return trace_vhv
 
-    def density(self, iter: int = 100, n_v: int = 1) -> tuple[list[list[float]], list[list[float]]]:
+    def density(
+        self, iter: int = 100, n_v: int = 1
+    ) -> tuple[list[list[float]], list[list[float]]]:
         """Computes the estimated eigenvalue density using the stochastic Lanczos algorithm (SLQ).
 
         Args:
@@ -304,7 +327,6 @@ class PyHessian:
             beta_list = []
             ############### Lanczos
             for i in range(iter):
-                self.model.zero_grad()
                 w_prime = [torch.zeros(p.size()).to(device) for p in self.params]
                 if i == 0:
                     _, w_prime = self.hv_product(v)
