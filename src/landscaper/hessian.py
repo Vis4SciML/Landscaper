@@ -92,8 +92,6 @@ def is_model_complex(model):
     for p in model.parameters():
         if torch.is_complex(p):
             return True
-        if torch.any(p < 0):
-            return True
     return False
 
 
