@@ -255,7 +255,6 @@ class PyHessian:
                 their corresponding eigenvectors.
         """
         assert top_n >= 1 and not self.model.training
-        device = self.device
         eigenvalues = []
         eigenvectors = []
 
@@ -264,14 +263,12 @@ class PyHessian:
 
             while computed_dim < top_n:
                 eigenvalue = None
-                v = [
-                    torch.randn(p.size()).to(device) for p in self.params
-                ]  # generate random vector
+                v = [torch.randn_like(p) for p in self.params]  # generate random vector
 
                 if self.use_complex:
                     v = [
                         (
-                            torch.complex(vv, torch.randn(vv.size()).to(device))
+                            torch.complex(vv, torch.randn_like(vv))
                             if not torch.is_complex(vv)
                             else vv
                         )
@@ -323,12 +320,12 @@ class PyHessian:
         trace = 0.0
 
         for _ in range(maxIter):
-            v = [torch.randint_like(p, high=2, device=device) for p in self.params]
+            v = [torch.randint_like(p, high=2) for p in self.params]
 
             if self.use_complex:
                 v = [
                     (
-                        torch.complex(vv, torch.randint_like(vv, high=2, device=device))
+                        torch.complex(vv, torch.randint_like(vv, high=2))
                         if not torch.is_complex(vv)
                         else vv
                     )
@@ -368,12 +365,12 @@ class PyHessian:
         weight_list_full = []
 
         for _ in range(n_v):
-            v = [torch.randint_like(p, high=2, device=device) for p in self.params]
+            v = [torch.randint_like(p, high=2) for p in self.params]
 
             if self.use_complex:
                 v = [
                     (
-                        torch.complex(vv, torch.randint_like(vv, high=2, device=device))
+                        torch.complex(vv, torch.randint_like(vv, high=2))
                         if not torch.is_complex(vv)
                         else vv
                     )
@@ -392,7 +389,18 @@ class PyHessian:
             beta_list = []
             ############### Lanczos
             for i in range(iter):
-                w_prime = [torch.zeros(p.size()).to(device) for p in self.params]
+                w_prime = [torch.zeros_like(p) for p in self.params]
+
+                if self.use_complex:
+                    w_prime = [
+                        (
+                            torch.complex(vv, torch.zeros_like(vv))
+                            if not torch.is_complex(vv)
+                            else vv
+                        )
+                        for vv in w_prime
+                    ]
+
                 if i == 0:
                     _, w_prime = self.hv_product(v)
                     alpha = group_product(w_prime, v)
@@ -408,7 +416,17 @@ class PyHessian:
                         v_list.append(v)
                     else:
                         # generate a new vector
-                        w = [torch.randn(p.size()).to(device) for p in self.params]
+                        w = [torch.randn_like(p) for p in self.params]
+                        if self.use_complex:
+                            w = [
+                                (
+                                    torch.complex(vv, torch.randn_like(vv))
+                                    if not torch.is_complex(vv)
+                                    else vv
+                                )
+                                for vv in w
+                            ]
+
                         v = orthnormal(w, v_list)
                         v_list.append(v)
                     _, w_prime = self.hv_product(v)

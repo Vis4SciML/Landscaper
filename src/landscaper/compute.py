@@ -146,7 +146,6 @@ def compute_loss_landscape(
     steps: int = 41,
     distance: float = 0.01,
     dim: int = 3,
-    batch_size: int = 10,
     device: DeviceStr = "cuda",
     use_complex: bool = False,
 ) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
@@ -161,7 +160,6 @@ def compute_loss_landscape(
         steps (int): Number of steps in each dimension.
         distance (float): Total distance to travel in parameter space. Setting this value too high may lead to unreliable results.
         dim (int): Number of dimensions for the loss landscape (default: 3)
-        batch_size (int): Batch size used to compute each point on landscape.
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
         use_complex (bool): Computes Landscape using complex numbers if this is set to true; use if your directions are complex.
     """
