@@ -58,14 +58,11 @@ def generic_generator(
     params = [p for p in model.parameters() if p.requires_grad]
 
     for sample, target in data:
-        # don't use .to(device) here to avoid memory leaks
         outputs = model.forward(sample)
         loss = criterion(outputs, target)
 
         # instead of loss.backward we directly compute the gradient to avoid overwriting the gradient in place
-        grads = torch.autograd.grad(
-            loss, params, create_graph=True, materialize_grads=True
-        )
+        grads = torch.autograd.grad(loss, params, create_graph=True, materialize_grads=True)
         yield sample.size(0), grads
 
 
@@ -87,7 +84,7 @@ def generic_generator_reverse_over_forward(
 """
 
 
-def is_model_complex(model):
+def _is_model_complex(model):
     for p in model.parameters():
         if torch.is_complex(p):
             return True
@@ -115,7 +112,10 @@ def dimenet_generator(
 
     for batch in data:
         input_size = len(batch)
-
+        
+        # Move batch to the correct device
+        batch = batch.to(device)
+        
         # Compute loss using test_step which is consistent with how the model is used
         loss = model.test_step(batch, 0, None)
         grads = torch.autograd.grad(loss, params, create_graph=True)
@@ -152,14 +152,14 @@ class PyHessian:
             device (DeviceStr): Device to run the computations on (e.g., 'cpu' or 'cuda').
             hessian_generator (callable, optional): Function to generate per-sample gradients.
                 Defaults to generic_generator.
-            try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs. Should make the computation faster, but can cause out of memory errors. If you run into memory problems, try setting this to false first.
-            use_complex (bool): Defaults to false. Forces the calculator to use complex values when performing computations. This is determined automatically, but this kwarg is included as a backup.
+            try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs.
+                Should make the computation faster, but can cause out of memory errors. If you run into memory problems,
+                try setting this to false first.
+            use_complex (bool): Defaults to false. Forces the calculator to use complex values when performing
+                computations. This is determined automatically, but this kwarg is included as a backup.
         """
-
         if model.training:
-            print(
-                "Setting model to eval mode. PyHessian will not work with models in training mode!"
-            )
+            print("Setting model to eval mode. PyHessian will not work with models in training mode!")
             self.model = model.eval()
         else:
             self.model = model
@@ -169,18 +169,14 @@ class PyHessian:
         self.criterion = criterion
         self.data = data
         self.device = device
-        self.use_complex = is_model_complex(self.model) or use_complex
+        self.use_complex = _is_model_complex(self.model) or use_complex
 
         if self.use_complex:
-            print(
-                "Complex parameters detected in model. Results will be complex tensors."
-            )
+            print("Complex parameters detected in model. Results will be complex tensors.")
 
         if try_cache:
             grad_cache = []
-            for input_size, grads in self.gen(
-                self.model, self.criterion, self.data, self.device
-            ):
+            for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
                 grad_cache.append((input_size, grads))
             self.grad_cache = grad_cache
             self.gen = lambda *args: (x for x in self.grad_cache)
@@ -199,24 +195,12 @@ class PyHessian:
         THv = [torch.zeros_like(p) for p in self.params]  # accumulate result
 
         if self.use_complex:
-            THv = [
-                torch.complex(t, t.clone()) if not torch.is_complex(t) else t
-                for t in THv
-            ]
+            THv = [torch.complex(t, t.clone()) if not torch.is_complex(t) else t for t in THv]
 
         num_data = 0
-        for input_size, grads in self.gen(
-            self.model, self.criterion, self.data, self.device
-        ):
+        for input_size, grads in self.gen(self.model, self.criterion, self.data, self.device):
             if self.use_complex:
-                grads = [
-                    (
-                        torch.complex(g, torch.zeros_like(g))
-                        if not torch.is_complex(g)
-                        else g
-                    )
-                    for g in grads
-                ]
+                grads = [(torch.complex(g, torch.zeros_like(g)) if not torch.is_complex(g) else g) for g in grads]
 
             Hv = torch.autograd.grad(
                 grads,
@@ -225,10 +209,7 @@ class PyHessian:
                 retain_graph=self.grad_cache is not None,
             )
 
-            THv = [
-                THv1 + Hv1 * float(input_size) + 0.0
-                for THv1, Hv1 in zip(THv, Hv, strict=False)
-            ]
+            THv = [THv1 + Hv1 * float(input_size) + 0.0 for THv1, Hv1 in zip(THv, Hv, strict=False)]
             num_data += float(input_size)
 
         THv = [THv1 / float(num_data) for THv1 in THv]
@@ -265,14 +246,7 @@ class PyHessian:
                 v = [torch.randn_like(p) for p in self.params]  # generate random vector
 
                 if self.use_complex:
-                    v = [
-                        (
-                            torch.complex(vv, torch.randn_like(vv))
-                            if not torch.is_complex(vv)
-                            else vv
-                        )
-                        for vv in v
-                    ]
+                    v = [(torch.complex(vv, torch.randn_like(vv)) if not torch.is_complex(vv) else vv) for vv in v]
 
                 v = normalization(v)  # normalize the vector
 
@@ -286,9 +260,7 @@ class PyHessian:
                     if eigenvalue is None:
                         eigenvalue = tmp_eigenvalue
                     else:
-                        spec_gap = abs(eigenvalue - tmp_eigenvalue) / (
-                            abs(eigenvalue) + 1e-6
-                        )
+                        spec_gap = abs(eigenvalue - tmp_eigenvalue) / (abs(eigenvalue) + 1e-6)
                         ibar.set_description(f"Err: {spec_gap}")
                         if spec_gap < tol:
                             break
@@ -322,12 +294,7 @@ class PyHessian:
 
             if self.use_complex:
                 v = [
-                    (
-                        torch.complex(vv, torch.randint_like(vv, high=2))
-                        if not torch.is_complex(vv)
-                        else vv
-                    )
-                    for vv in v
+                    (torch.complex(vv, torch.randint_like(vv, high=2)) if not torch.is_complex(vv) else vv) for vv in v
                 ]
 
             # generate Rademacher random variables
@@ -342,9 +309,7 @@ class PyHessian:
 
         return trace_vhv
 
-    def density(
-        self, iter: int = 100, n_v: int = 1
-    ) -> tuple[list[list[float]], list[list[float]]]:
+    def density(self, iter: int = 100, n_v: int = 1) -> tuple[list[list[float]], list[list[float]]]:
         """Computes the estimated eigenvalue density using the stochastic Lanczos algorithm (SLQ).
 
         Args:
@@ -367,12 +332,7 @@ class PyHessian:
 
             if self.use_complex:
                 v = [
-                    (
-                        torch.complex(vv, torch.randint_like(vv, high=2))
-                        if not torch.is_complex(vv)
-                        else vv
-                    )
-                    for vv in v
+                    (torch.complex(vv, torch.randint_like(vv, high=2)) if not torch.is_complex(vv) else vv) for vv in v
                 ]
 
             # generate Rademacher random variables
@@ -391,12 +351,7 @@ class PyHessian:
 
                 if self.use_complex:
                     w_prime = [
-                        (
-                            torch.complex(vv, torch.zeros_like(vv))
-                            if not torch.is_complex(vv)
-                            else vv
-                        )
-                        for vv in w_prime
+                        (torch.complex(vv, torch.zeros_like(vv)) if not torch.is_complex(vv) else vv) for vv in w_prime
                     ]
 
                 if i == 0:
@@ -417,11 +372,7 @@ class PyHessian:
                         w = [torch.randn_like(p) for p in self.params]
                         if self.use_complex:
                             w = [
-                                (
-                                    torch.complex(vv, torch.randn_like(vv))
-                                    if not torch.is_complex(vv)
-                                    else vv
-                                )
+                                (torch.complex(vv, torch.randn_like(vv)) if not torch.is_complex(vv) else vv)
                                 for vv in w
                             ]
 
