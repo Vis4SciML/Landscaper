@@ -1,14 +1,9 @@
-import base64
-
 import pytest
 import pytest_html
+from utils import svg_to_str
 
 from landscaper.plots import topology_profile
 from landscaper.topology_profile import generate_profile
-
-
-def svg_to_str(svg):
-    return f"data:image/svg+xml;base64,{base64.b64encode(svg.as_svg().encode('utf-8')).decode('utf-8')}"
 
 
 @pytest.fixture
@@ -18,7 +13,7 @@ def profile(landscape_2d):
 
 
 def test_generate_profile_grad(profile, extras):
-    svg = topology_profile(profile, gradient=True, y_axis=None)
+    svg = topology_profile(profile, gradient=True)
     extras.append(pytest_html.extras.svg(svg_to_str(svg)))
 
 

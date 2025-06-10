@@ -1,3 +1,8 @@
+"""Plots for visualizing topological data analysis results.
+
+TODO: get rid of plt.show calls so that users can pick between saving the figure & displaying it interactively
+"""
+
 from collections.abc import Callable
 from typing import TypedDict
 
@@ -8,28 +13,39 @@ import numpy.typing as npt
 import topopy as tp
 from coloraide import Color
 from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch
+from scipy.interpolate import interp1d
 
 from .tda import get_persistence_dict
 from .utils import Number
 
 
-def persistence_barcode(msc: tp.MorseSmaleComplex):
+def persistence_barcode(
+    msc: tp.MorseSmaleComplex, show: bool = True, figsize: tuple[int, int] = (12, 6)
+) -> None | Figure:
     """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode)  for a Morse-Smale complex.
 
     Args:
         msc (tp.MorseSmaleComplex): A Morse-Smale complex.
+        show (bool): Shows the plot if true, otherwise returns the figure.
+        figsize (tuple[int,int]): Size of the figure.
     """
-
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
     node_list = [str(node) for node in list(get_persistence_dict(msc).keys())]
     persistence_list = list(get_persistence_dict(msc).values())
-    plt.barh(node_list, persistence_list)
-    plt.xlabel("Persistence")
-    plt.ylabel("Node")
-    plt.title("Node vs Persistence")
+    ax.barh(node_list, persistence_list)
+    ax.set_xlabel("Persistence")
+    ax.set_ylabel("Node")
+    ax.set_title("Node vs Persistence")
+
+    if not show:
+        return fig
     plt.show()
 
 
-def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number):
+def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number) -> Callable[[Number], Number]:
     """Creates a linear scale that maps [min_val, max_val] -> [new_min, new_max]; similar to d3's `linearScale`.
 
     Args:
@@ -45,6 +61,13 @@ def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Numb
 
 
 class AxisOptions(TypedDict):
+    """Options for the Y axis of the topology profile.
+
+    Attributes:
+        tick_format (Callable[[float], str]): Function to format the tick labels.
+        font_size (int): Font size for the tick labels.
+    """
+
     tick_format: Callable[[float], str]
     font_size: int
 
@@ -62,8 +85,11 @@ def topology_profile(
     background_color: str = "white",
     gradient: bool = True,
     y_axis: AxisOptions | None = default_axis,
-):
-    """Renders a topological profile for the given merge tree data extracted with `extract_merge_tree` from `landscaper.tda`.
+) -> dw.Drawing:
+    """Renders a topological profile.
+
+    Renders a topological profile for the given merge tree data
+    extracted with `extract_merge_tree` from `landscaper.tda`.
 
     Args:
         data (List[List[float]]): The merge tree data.
@@ -73,7 +99,9 @@ def topology_profile(
         margin (int): Size of the margins in pixels.
         color (str): Color used to draw the profile.
         background_color (str): Color used to draw the background.
-        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`. If false, only uses `color` to fill the path. Set this to false if you are exporting the drawing into a different format.
+        gradient (bool): If true, fills the profile using a gradient from `background_color` to `color`.
+            If false, only uses `color` to fill the path. Set this to false if you are
+            exporting the drawing into a different format.
         y_axis (AxisOptions): Sets options for the Y axis. Set to None to disable.
     """
     # TODO: validate profile data
@@ -167,13 +195,19 @@ def topology_profile(
     return svg
 
 
-def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
+def contour(
+    coordinates: npt.ArrayLike,
+    loss: npt.ArrayLike,
+    show: bool = True,
+    figsize: tuple[int, int] = (12, 8),
+) -> None | Figure:
     """Draws a contour plot from the provided coordinates and values.
 
     Args:
         coordinates (npt.ArrayLike): n-dimensional coordinates.
-        values (npt.ArrayLike): Value for each coordinate.
-        figsize (tuple[int,int]): Size of the figure.
+        loss (npt.ArrayLike): Value for each coordinate.
+        figsize (tuple[int, int]): Size of the figure.
+        show (bool): If true, shows the plot; otherwise returns the figure.
 
     Raises:
         ValueError: Raised if rendering fails.
@@ -250,13 +284,23 @@ def contour(coordinates: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int,
     ax1.grid(True, linestyle="--", alpha=0.3)
     ax1.axis("equal")
 
+    if not show:
+        return fig
+    plt.show()
 
-def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, int] = (12, 8)):
+
+def surface_3d(
+    coords: npt.ArrayLike,
+    loss: npt.ArrayLike,
+    show: bool = True,
+    figsize: tuple[int, int] = (12, 8),
+) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
     Args:
         coords (npt.ArrayLike): 2-D coordinates.
         loss (npt.ArrayLike): Values for the coordinates.
+        show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int,int]): Size of the figure.
     """
     # Create 3D surface plot
@@ -294,4 +338,180 @@ def surface_3d(coords: npt.ArrayLike, loss: npt.ArrayLike, figsize: tuple[int, i
     # Adjust the viewing angle for better visualization
     ax.view_init(elev=30, azim=45)
 
+    if not show:
+        return fig
+    plt.show()
+
+
+def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
+    """Plots the density distribution of Hessian eigenvalues.
+
+    Args:
+        eigen (npt.ArrayLike): Array of Hessian eigenvalues.
+        weight (npt.ArrayLike): Corresponding weights for the eigenvalues.
+        show (bool): Shows the plot if true, otherwise returns the figure.
+        figsize (tuple[int, int]): Size of the figure.
+    """
+    density_eigen = np.array(eigen)
+    density_weight = np.array(weight)
+
+    # Ensure both arrays are 1D
+    if density_eigen.ndim > 1:
+        density_eigen = density_eigen.ravel()
+    if density_weight.ndim > 1:
+        density_weight = density_weight.ravel()
+
+    # Ensure arrays have matching dimensions
+    if len(density_eigen) != len(density_weight):
+        # Create new x points for interpolation
+        x_old = np.linspace(min(density_eigen), max(density_eigen), len(density_weight))
+        x_new = np.linspace(min(density_eigen), max(density_eigen), len(density_eigen))
+
+        f = interp1d(x_old, density_weight, kind="linear", fill_value="extrapolate")
+        density_weight = f(x_new)
+
+    # Ensure we're only plotting real components
+    if np.iscomplexobj(density_eigen):
+        density_eigen = density_eigen.real
+    if np.iscomplexobj(density_weight):
+        density_weight = density_weight.real
+
+    # Sort values for better visualization
+    sort_idx = np.argsort(density_eigen)
+    density_eigen = density_eigen[sort_idx]
+    density_weight = density_weight[sort_idx]
+
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    # Create smooth curves using kernel density estimation
+    if len(density_eigen) > 1:  # Only if we have enough points
+        # Separate positive and negative regions
+        pos_mask = density_eigen >= 0
+        neg_mask = density_eigen < 0
+
+        # Create histogram data with more bins for better resolution
+        num_bins = 200  # Increased from 100 to 200 for more detail
+
+        # Find the global min and max for consistent binning
+        global_min = min(density_eigen)
+        global_max = max(density_eigen)
+
+        # Create consistent bins across the entire range
+        bins = np.linspace(global_min, global_max, num_bins + 1)
+
+        # Create separate histograms but using the same bin definitions
+        pos_hist, _ = np.histogram(density_eigen[pos_mask], bins=bins, density=True)
+        neg_hist, _ = np.histogram(density_eigen[neg_mask], bins=bins, density=True)
+
+        # Plot histograms with consistent bins
+        ax.hist(
+            density_eigen[pos_mask],
+            bins=bins,
+            alpha=0.4,
+            color="#90CAF9",
+            label="Positive Histogram",
+            density=True,
+            edgecolor="#2E86C1",
+            linewidth=0.5,
+        )
+        ax.hist(
+            density_eigen[neg_mask],
+            bins=bins,
+            alpha=0.4,
+            color="#FFAB91",
+            label="Negative Histogram",
+            density=True,
+            edgecolor="#E74C3C",
+            linewidth=0.5,
+        )
+
+    ax.set_ylabel("Density", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Eigenvalue", fontsize=12, fontweight="bold")
+    ax.set_title(
+        "Hessian Eigenvalue Density Distribution",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
+    )
+
+    # Add vertical line at x=0
+    ax.axvline(x=0, color="black", linestyle="--", alpha=0.5)
+
+    # Add legend if we have both positive and negative values
+    if np.any(density_eigen < 0) and np.any(density_eigen >= 0):
+        ax.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
+
+    ax.grid(True, linestyle="--", alpha=0.7)
+    plt.tight_layout()
+
+    if not show:
+        return fig
+    plt.show()
+
+
+def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
+    """Plots the top-10 Hessian eigenvalues as an enhanced bar chart.
+
+    Args:
+        top_eigenvalues (npt.ArrayLike): Array of top-10 Hessian eigenvalues.
+        show (bool): Shows the plot if true, otherwise returns the figure.
+        figsize (tuple[int, int]): Size of the figure.
+    """
+    # Plot the top-10 eigenvalues as an enhanced bar chart
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    indices = np.arange(len(top_eigenvalues))
+
+    # Create bars with different colors for positive and negative values
+    colors = ["#2E86C1" if val >= 0 else "#E74C3C" for val in top_eigenvalues]
+    bars = ax.bar(indices, top_eigenvalues, color=colors, width=0.7)
+
+    # Add value labels on top of the bars
+    for bar in bars:
+        yval = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            yval + 0.01 * abs(yval),
+            f"{yval:.3f}",
+            ha="center",
+            va="bottom" if yval >= 0 else "top",
+            fontsize=10,
+            fontweight="bold",
+        )
+
+    plt.xlabel("Index", fontsize=12, fontweight="bold")
+    plt.ylabel("Eigenvalue", fontsize=12, fontweight="bold")
+    plt.title(
+        f"Top-{len(top_eigenvalues)} Hessian Eigenvalues",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
+    )
+    # Improve x-axis ticks
+    ax.set_xticks(indices, [f"{i + 1}" for i in indices], fontsize=10)
+
+    # Add horizontal line at y=0 with better styling
+    ax.axhline(y=0, color="black", linestyle="-", alpha=0.2, zorder=0)
+
+    # Add grid with better styling
+    ax.grid(True, axis="y", linestyle="--", alpha=0.3, zorder=0)
+
+    legend_elements = [
+        Patch(facecolor="#2E86C1", label="Positive Eigenvalues", alpha=0.9),
+        Patch(facecolor="#E74C3C", label="Negative Eigenvalues", alpha=0.9),
+    ]
+    ax.legend(
+        handles=legend_elements,
+        loc="upper right",
+        frameon=True,
+        fancybox=True,
+        shadow=True,
+    )
+
+    # Adjust layout
+    plt.tight_layout()
+    if not show:
+        return fig
     plt.show()

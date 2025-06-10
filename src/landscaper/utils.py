@@ -1,3 +1,5 @@
+"""Utility functions for the Landscaper package."""
+
 import os
 from typing import Literal
 
@@ -5,36 +7,71 @@ import numpy as np
 import numpy.typing as npt
 import torch
 
-DeviceStr = Literal["cuda", "cpu"]
+DeviceStr = Literal["cuda", "cpu", "mps", "xpu", "ipu", "hpu"]
 Number = int | float
 
 
-def group_product(xs, ys):
+def generate_random_orthogonal_directions(model: torch.nn.Module, n: int = 3) -> list[list[torch.Tensor]]:
+    """Generates n random orthogonal directions in the parameter space of the model.
+
+    Args:
+        model (torch.nn.Module): The model for which to generate directions.
+        n (int, optional): Number of orthogonal directions to generate. Defaults to 3.
+
+    Returns:
+        list[list[torch.Tensor]]: A list of n lists, each containing tensors representing an orthogonal direction.
     """
-    the inner product of two lists of variables xs,ys
-    :param xs:
-    :param ys:
-    :return:
+    directions = []
+    while len(directions) != n:
+        random_dir = [torch.randn_like(p.data) for p in model.parameters()]
+        for prev_dir in directions:
+            dot_product = sum((d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False))
+
+            for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
+                random_dir[j] = d1 - dot_product * d2
+        directions.append(random_dir)
+    return directions
+
+
+def group_product(xs: list[torch.Tensor], ys: list[torch.Tensor]) -> torch.Tensor:
+    """Computes the dot product of two lists of tensors.
+
+    Args:
+        xs (list[torch.Tensor]): List of tensors.
+        ys (list[torch.Tensor]): List of tensors.
+
+    Returns:
+        torch.Tensor: The sum of the element-wise products of the tensors in xs and ys.
     """
     return sum([torch.sum(x * y) for (x, y) in zip(xs, ys, strict=False)])
 
 
-def group_add(params, update, alpha=1):
-    """
-    params = params + update*alpha
-    :param params: list of variable
-    :param update: list of data
-    :return:
+def group_add(params: list[torch.Tensor], update: list[torch.Tensor], alpha: float = 1) -> list[torch.Tensor]:
+    """Adds the update to the parameters with a scaling factor alpha.
+
+    Params = params + update*alpha
+
+    Args:
+        params (list[torch.Tensor]): List of parameters.
+        update (list[torch.Tensor]): List of updates.
+        alpha (float, optional): Scaling factor. Defaults to 1.
+
+    Returns:
+        list[torch.Tensor]: Updated list of parameters.
     """
     for i, _ in enumerate(params):
         params[i].data.add_(update[i] * alpha)
     return params
 
 
-def normalization(v):
-    """
-    normalization of a list of vectors
-    return: normalized vectors v
+def normalization(v: list[torch.Tensor]) -> list[torch.Tensor]:
+    """Normalization of a list of vectors v.
+
+    Args:
+        v (list[torch.Tensor]): List of tensors to normalize.
+
+    Returns:
+        list[torch.Tensor]: Normalized list of tensors.
     """
     s = group_product(v, v)
     s = s**0.5
@@ -43,35 +80,15 @@ def normalization(v):
     return v
 
 
-def get_params_grad(model):
-    """
-    get model parameters and corresponding gradients
-    """
-    params = []
-    grads = []
-    for param in model.parameters():
-        if not param.requires_grad:
-            continue
-        params.append(param)
-        grads.append(0.0 if param.grad is None else param.grad + 0.0)
-    return params, grads
+def orthnormal(w: list[torch.Tensor], v_list: list[torch.Tensor]) -> list[torch.Tensor]:
+    """Make vector w orthogonal to each vector in v_list and normalize the output w.
 
+    Args:
+        w (list[torch.Tensor]): The vector to be made orthogonal.
+        v_list (list[torch.Tensor]): List of vectors to which w should be made orthogonal.
 
-def hessian_vector_product(gradsH, params, v):
-    """
-    compute the hessian vector product of Hv, where
-    gradsH is the gradient at the current point,
-    params is the corresponding variables,
-    v is the vector.
-    """
-    hv = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True, retain_graph=True)
-    return hv
-
-
-def orthnormal(w, v_list):
-    """
-    make vector w orthogonal to each vector in v_list.
-    afterwards, normalize the output w
+    Returns:
+        list[torch.Tensor]: The orthogonalized and normalized vector w.
     """
     for v in v_list:
         w = group_add(w, v, alpha=-group_product(w, v))

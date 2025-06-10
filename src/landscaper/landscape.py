@@ -1,3 +1,9 @@
+"""This module provides functions to compute the loss landscape of a model and visualize it in various ways.
+
+It includes methods for computing the loss landscape, loading it from a file, and
+visualizing it as a 3D surface, contour plot, or persistence barcode.
+"""
+
 import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
@@ -11,30 +17,46 @@ from .utils import load_landscape
 
 
 class LossLandscape:
+    """A class representing a loss landscape of a model.
+
+    It contains methods to compute the landscape, visualize it, and analyze its topological properties.
+    """
+
     @staticmethod
-    def compute(*args, **kwargs):
-        """Computes a loss landscape and directly creates a LossLandscape object. See `landscaper.compute` for more information.
+    def compute(*args, **kwargs) -> "LossLandscape":
+        """Computes a loss landscape and directly creates a LossLandscape object.
+
+        See `landscaper.compute` for more information.
 
         Returns:
             (LossLandscape) A LossLandscape object.
         """
-        top_eigenvalues, top_eigenvectors, loss, coords = compute_loss_landscape(*args, **kwargs)
+        loss, coords = compute_loss_landscape(*args, **kwargs)
         return LossLandscape(loss, coords)
 
     @staticmethod
-    def load_from_npz(fp: str):
+    def load_from_npz(fp: str) -> "LossLandscape":
         """Creates a LossLandscape object directly from an `.npz` file.
 
         Args:
             fp (str): path to the file.
 
         Returns:
-            A LossLandscape object.
+            (LossLandscape) A LossLandscape object created from the file.
         """
         loss, coords = load_landscape(fp)
         return LossLandscape(loss, coords)
 
-    def __init__(self, loss: npt.ArrayLike, ranges: npt.ArrayLike):
+    def __init__(self, loss: npt.ArrayLike, ranges: npt.ArrayLike) -> None:
+        """Initializes a LossLandscape object.
+
+        Args:
+            loss (npt.ArrayLike): A numpy array representing the loss values of the landscape.
+            ranges (npt.ArrayLike): A list of numpy arrays representing the ranges of each dimension of the landscape.
+
+        Raises:
+            ValueError: If the dimensions of the loss array do not match the number of coordinates.
+        """
         self.loss = loss
         # converts meshgrid output of arbitrary dimensions into list of coordinates
         grid = np.meshgrid(*ranges)
@@ -42,7 +64,8 @@ class LossLandscape:
 
         if self.coords.shape[0] != np.multiply.reduce(self.loss.shape):
             raise ValueError(
-                f"Loss dimensions do not match coordinate dimensions: Loss - {self.loss.shape}; Coordinates - {self.coords.shape}"
+                f"Loss dimensions do not match coordinate dimensions: Loss - {self.loss.shape}; "
+                f"Coordinates - {self.coords.shape}"
             )
 
         self.ranges = ranges
@@ -53,7 +76,7 @@ class LossLandscape:
         self.super_tree = None
         self.topological_indices = None
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """Saves the loss and coordinates of the landscape to the specified path for later use.
 
         Args:
@@ -77,7 +100,6 @@ class LossLandscape:
         Returns:
             A tp.MergeTree object corresponding to the maxima of the loss landscape.
         """
-
         if self.super_tree is None:
             self.super_tree = merge_tree(self.loss, self.coords, self.graph, direction=-1)
         return self.super_tree
@@ -96,8 +118,9 @@ class LossLandscape:
 
     def get_topological_indices(self) -> dict[int, int]:
         """Returns a dictionary that maps point indices to their topological indices.
+
         Returns:
-            (dict[int,int])
+            (dict[int, int]): A dictionary mapping point indices to their topological indices.
         """
         msc = self.get_ms_complex()
         mt = self.get_sublevel_tree()
@@ -113,7 +136,9 @@ class LossLandscape:
         return get_persistence_dict(self.get_ms_complex())
 
     def show(self, **kwargs):
-        """Renders a 3D representation of the loss landscape. See :obj:`landscaper.plots.surface_3d` for keyword arguments.
+        """Renders a 3D representation of the loss landscape.
+
+        See :obj:`landscaper.plots.surface_3d` for keyword arguments.
 
         Raises:
             ValueError: Thrown if the landscape has too many dimensions.
@@ -124,22 +149,33 @@ class LossLandscape:
             raise ValueError(f"Cannot visualize a landscape with {self.dims} dimensions.")
 
     def show_profile(self, **kwargs):
-        """Renders the topological profile of the landscape. See :obj:`landscaper.plots.topological_profile` for more details."""
+        """Renders the topological profile of the landscape.
+
+        See :obj:`landscaper.plots.topological_profile` for more details.
+        """
         mt = self.get_sublevel_tree()
         profile = generate_profile(mt)
         return topology_profile(profile, **kwargs)
 
     def show_contour(self, **kwargs):
-        """Renders a contour plot of the landscape. See :obj:`landscaper.plots.contour` for more details."""
-        return contour(self.ranges, self.loss)
+        """Renders a contour plot of the landscape.
 
-    def show_persistence_barcode(self):
-        """Renders the persistence barcode of the landscape. See :obj:`landscaper.plots.persistence_barcode` for more details."""
+        See :obj:`landscaper.plots.contour` for more details.
+        """
+        return contour(self.ranges, self.loss, **kwargs)
+
+    def show_persistence_barcode(self, **kwargs):
+        """Renders the persistence barcode of the landscape.
+
+        See :obj:`landscaper.plots.persistence_barcode` for more details.
+        """
         msc = self.get_ms_complex()
-        return persistence_barcode(msc)
+        return persistence_barcode(msc, **kwargs)
 
     def smad(self) -> float:
-        """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape. See our publication for more details.
+        """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
+
+        See our publication for more details.
 
         Returns:
             (float) A descriptor of the smoothness of the landscape.

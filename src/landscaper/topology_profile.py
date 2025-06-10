@@ -1,3 +1,5 @@
+"""Function to generate topological profiles from a merge tree."""
+
 import itertools
 
 import networkx as nx
@@ -45,9 +47,9 @@ def build_basin(node_id: int, g: nx.DiGraph, mt: tp.MergeTree) -> int:
     return len(segmentations)
 
 
-def get_parent(g: nx.DiGraph, n: int):
-    """
-    Gets the parent of a node in the directed graph. Errors if there is more than one parent (no longer a tree).
+def get_parent(g: nx.DiGraph, n: int) -> int | None:
+    """Gets the parent of a node in the directed graph. Errors if there is more than one parent (no longer a tree).
+
     Args:
         g (nx.DiGraph): Directed graph representation of a merge tree.
         n (int): Node ID to get parent for.
@@ -67,7 +69,7 @@ def get_parent(g: nx.DiGraph, n: int):
         return pred[0]
 
 
-def assign_center(node_id, g, start: int, end: int):
+def assign_center(node_id: int, g: nx.DiGraph, start: int, end: int) -> None:
     """Assigns the center of the basin when constructing the profile. Needed for visualization.
 
     Args:
@@ -94,11 +96,14 @@ def assign_center(node_id, g, start: int, end: int):
         left += partial_length
 
 
-def generate_profile(mt: tp.MergeTree):
-    """Generates a topological profile based on a merge tree. Used along with :obj:`landscaper.plots.topoplogy_profile`. Can be visualized directly with a LossLandscape object using :obj:`landscaper.landscape.LossLandscape.show_profile`.
+def generate_profile(mt: tp.MergeTree) -> list[list[list[float]]]:
+    """Generates a topological profile based on a merge tree.
+
+    Used along with :obj:`landscaper.plots.topoplogy_profile`. Can be visualized
+    directly with a LossLandscape object using :obj:`landscaper.landscape.LossLandscape.show_profile`.
 
     Args:
-        mt (tp.MergeTree):
+        mt (tp.MergeTree): The merge tree to generate a profile for.
 
     Returns:
         Profile data to visualize.
@@ -112,10 +117,10 @@ def generate_profile(mt: tp.MergeTree):
     # Initialize result arrays
     res = []
 
-    def collect_individual_basins(node_id):
+    def _collect_individual_basins(node_id):
         node = g.nodes[node_id]
         for child in g.successors(node_id):
-            collect_individual_basins(child)
+            _collect_individual_basins(child)
 
         right = [[i + node["center"], y] for i, y in enumerate(node["points"])]
 
@@ -128,6 +133,6 @@ def generate_profile(mt: tp.MergeTree):
                 pts,
             )
 
-    collect_individual_basins(root)
+    _collect_individual_basins(root)
 
     return res
