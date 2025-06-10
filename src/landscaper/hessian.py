@@ -24,6 +24,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from .utils import (
     DeviceStr,
@@ -32,8 +33,6 @@ from .utils import (
     normalization,
     orthnormal,
 )
-
-from tqdm import tqdm
 
 
 def generic_generator(
@@ -174,7 +173,7 @@ class PyHessian:
 
         if self.use_complex:
             print(
-                "Negative or complex parameters detected in model. Results will be complex tensors."
+                "Complex parameters detected in model. Results will be complex tensors."
             )
 
         if try_cache:
@@ -315,7 +314,6 @@ class PyHessian:
         """
         assert not self.model.training
 
-        device = self.device
         trace_vhv = []
         trace = 0.0
 

@@ -142,26 +142,28 @@ def compute_loss_landscape(
     model: torch.nn.Module,
     data: npt.ArrayLike,
     dirs: npt.ArrayLike,
-    loss_function: Callable[[torch.nn.Module, npt.ArrayLike], float],
+    scalar_fn: Callable[[torch.nn.Module, npt.ArrayLike], float],
     steps: int = 41,
     distance: float = 0.01,
     dim: int = 3,
     device: DeviceStr = "cuda",
     use_complex: bool = False,
-) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
+) -> tuple[npt.ArrayLike, npt.ArrayLike]:
     """Computes the loss landscape along the top-N eigenvector directions.
 
     Args:
         model (torch.nn.Module): The model to analyze.
         data (npt.ArrayLike): Data that will be used to evaluate the loss function for each point on the landscape.
         dirs (npt.ArrayLike): 2D array of directions to generate the landscape with.
-        loss_function (Callable[[torch.nn.Module, npt.ArrayLike], float]): Loss function for the model.
-            Should take the model and data as input and return a float loss value.
+        scalar_fn (Callable[[torch.nn.Module, npt.ArrayLike], float]): This function should take a model and your data and return a scalar value; it gets called repeatedly with perturbed versions of the model.
         steps (int): Number of steps in each dimension.
         distance (float): Total distance to travel in parameter space. Setting this value too high may lead to unreliable results.
         dim (int): Number of dimensions for the loss landscape (default: 3)
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
         use_complex (bool): Computes Landscape using complex numbers if this is set to true; use if your directions are complex.
+
+    Returns:
+        The loss values and coordinates for the landscape as numpy arrays.
     """
 
     # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
@@ -224,7 +226,7 @@ def compute_loss_landscape(
 
                 # Set model parameters
                 set_parameters(model, point_params)
-                loss = loss_function(model, data)
+                loss = scalar_fn(model, data)
                 loss_hypercube[gp] = loss
 
                 # Clear GPU memory

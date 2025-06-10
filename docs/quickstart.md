@@ -63,38 +63,44 @@ def my_hessian_generator(
 
 where each iteration yields the size of the input and the gradient of the loss. Most of the time, you will only need to change how the loss is being calculated or how the data is being accessed.
 
-## Defining a Loss Function
-Once our hessian calculator is set up, we have to define a loss function for our model to be used when parameters are perturbed. Here's an example implementation:
+## Defining a Scalar Function
+Once our hessian calculator is set up, we have to define a function that takes a model and our data. This function gets called for every coordinate in the loss landscape with a perturbed version of our model. Here's an example use that calculates the average loss for a model:
 
 ```python
-def loss_function(model: nn.Module, data: Tensor) -> float:
+def scalar_function(model: nn.Module, data: Tensor) -> float:
     """
-    A function that computes the total loss for the model given the data.
+    A function that computes the average loss for the model given the data.
     
     Args:
-        model (nn.Module): The model for which to compute the loss.
+        model (nn.Module): The model to compute the loss with.
         data (Tensor): The input data for the model.
     
     Returns:
-        float: The total loss for the model.
+        float: The average loss for the model.
     """
     total = 0.0
+    count = 0
     for d in data:
         sample, label = d
         output = model.forward(sample)
         loss = criterion(output, label)
         total += loss
-    return total
+        count += 1
+    return total / count
 ```
 
 ## Computing the Loss Landscape
 
-The function should take your model and data and return a total loss. With these elements in place, we can finally call `compute`:
+With these elements in place, we can finally call `compute`:
 
 ```python
+
+directions = hessian_comp.eigenvalues(top_n=3)
+
 landscape = LossLandscape.compute(
     model, 
-    data, 
+    data,
+    directions,
     hessian_comp,
     loss_function,
     dim=2,
@@ -104,3 +110,25 @@ landscape = LossLandscape.compute(
 This will compute the loss landscape for your model using the provided data and hessian calculator. The `dim` parameter specifies the dimensionality of the perturbation space (2 for 2D landscapes, 3 for 3D landscapes, etc.).
 
 ## Visualizing the Landscape
+
+The landscape can be visualized in a number of different ways once it is finally computed.
+
+```python
+
+landscape.show() # shows a 3D render of the landscape if dim=2
+landscape.show_profile() # shows a 1D landscape profile
+landscape.show_contour() # contour plot
+landscape.show_persistence_barcode() # persistence barcode
+```
+
+If you are interested in examining the merge tree, you can visualize it using networkx:
+```python
+from Landscaper.tda import digraph_mt
+import networkx as nx
+
+mt = landscape.get_sublevel_tree() # gets the minima merge tree
+# mt = landscape.get_super_tree()
+
+g = digraph_mt(mt)
+nx.draw_planar(g) # draws a planar graph of the merge tree
+```
