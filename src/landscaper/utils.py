@@ -7,17 +7,17 @@ import numpy as np
 import numpy.typing as npt
 import torch
 
-DeviceStr = Literal["cuda", "cpu"]
+DeviceStr = Literal["cuda", "cpu", "mps", "xpu", "ipu", "hpu"]
 Number = int | float
 
 
 def generate_random_orthogonal_directions(model: torch.nn.Module, n: int = 3) -> list[list[torch.Tensor]]:
     """Generates n random orthogonal directions in the parameter space of the model.
-    
+
     Args:
         model (torch.nn.Module): The model for which to generate directions.
         n (int, optional): Number of orthogonal directions to generate. Defaults to 3.
-        
+
     Returns:
         list[list[torch.Tensor]]: A list of n lists, each containing tensors representing an orthogonal direction.
     """
