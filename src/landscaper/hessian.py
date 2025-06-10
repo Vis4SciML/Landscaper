@@ -86,7 +86,7 @@ def generic_generator_reverse_over_forward(
 """
 
 
-def is_model_complex(model):
+def _is_model_complex(model):
     for p in model.parameters():
         if torch.is_complex(p):
             return True
@@ -114,6 +114,9 @@ def dimenet_generator(
 
     for batch in data:
         input_size = len(batch)
+
+        # Move batch to the correct device
+        batch = batch.to(device)
 
         # Compute loss using test_step which is consistent with how the model is used
         loss = model.test_step(batch, 0, None)
@@ -151,10 +154,12 @@ class PyHessian:
             device (DeviceStr): Device to run the computations on (e.g., 'cpu' or 'cuda').
             hessian_generator (callable, optional): Function to generate per-sample gradients.
                 Defaults to generic_generator.
-            try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs. Should make the computation faster, but can cause out of memory errors. If you run into memory problems, try setting this to false first.
-            use_complex (bool): Defaults to false. Forces the calculator to use complex values when performing computations. This is determined automatically, but this kwarg is included as a backup.
+            try_cache (bool): Defaults to false. Caches per-sample gradients along with their computational graphs.
+                Should make the computation faster, but can cause out of memory errors. If you run into memory problems,
+                try setting this to false first.
+            use_complex (bool): Defaults to false. Forces the calculator to use complex values when performing
+                computations. This is determined automatically, but this kwarg is included as a backup.
         """
-
         if model.training:
             print(
                 "Setting model to eval mode. PyHessian will not work with models in training mode!"
@@ -168,7 +173,7 @@ class PyHessian:
         self.criterion = criterion
         self.data = data
         self.device = device
-        self.use_complex = is_model_complex(self.model) or use_complex
+        self.use_complex = _is_model_complex(self.model) or use_complex
 
         if self.use_complex:
             print(

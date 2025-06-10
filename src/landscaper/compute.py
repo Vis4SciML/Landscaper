@@ -13,11 +13,14 @@ from .utils import DeviceStr
 
 
 # Helper functions for loss landscape computation
-def get_model_parameters(model: torch.nn.Module, as_complex) -> list[torch.Tensor]:
+def get_model_parameters(
+    model: torch.nn.Module, as_complex: bool
+) -> list[torch.Tensor]:
     """Get model parameters as a list of tensors.
 
     Args:
         model (torch.nn.Module): The PyTorch model whose parameters are to be retrieved.
+        as_complex (bool): If True, convert parameters to complex tensors. If False, keep them as real tensors.
 
     Returns:
         list[torch.Tensor]: List of model parameters.
@@ -32,16 +35,18 @@ def get_model_parameters(model: torch.nn.Module, as_complex) -> list[torch.Tenso
     return params
 
 
-def clone_parameters(parameters: list[torch.Tensor], as_complex) -> list[torch.Tensor]:
+def clone_parameters(
+    parameters: list[torch.Tensor], as_complex: bool
+) -> list[torch.Tensor]:
     """Clone model parameters to avoid modifying the original tensors.
 
     Args:
         parameters (list[torch.Tensor]): List of model parameters to clone.
+        as_complex (bool): If True, convert cloned parameters to complex tensors. If False, keep them as real tensors.
 
     Returns:
         list[torch.Tensor]: List of cloned parameters.
     """
-
     params = [p.clone() for p in parameters]
 
     if as_complex:
@@ -154,17 +159,19 @@ def compute_loss_landscape(
         model (torch.nn.Module): The model to analyze.
         data (npt.ArrayLike): Data that will be used to evaluate the loss function for each point on the landscape.
         dirs (npt.ArrayLike): 2D array of directions to generate the landscape with.
-        scalar_fn (Callable[[torch.nn.Module, npt.ArrayLike], float]): This function should take a model and your data and return a scalar value; it gets called repeatedly with perturbed versions of the model.
+        scalar_fn (Callable[[torch.nn.Module, npt.ArrayLike], float]): This function should take a model
+            and your data and return a scalar value; it gets called repeatedly with perturbed versions of the model.
         steps (int): Number of steps in each dimension.
-        distance (float): Total distance to travel in parameter space. Setting this value too high may lead to unreliable results.
+        distance (float): Total distance to travel in parameter space. Setting this value too high
+            may lead to unreliable results.
         dim (int): Number of dimensions for the loss landscape (default: 3)
         device (Literal["cuda", "cpu"]): Device used to compute landscape.
-        use_complex (bool): Computes Landscape using complex numbers if this is set to true; use if your directions are complex.
+        use_complex (bool): Computes Landscape using complex numbers if this is set to true;
+            use if your directions are complex.
 
     Returns:
         The loss values and coordinates for the landscape as numpy arrays.
     """
-
     # Initialize loss hypercube - For dim dimensions, we need a dim-dimensional array
     loss_shape = tuple([steps] * dim)
     loss_hypercube = np.zeros(loss_shape)

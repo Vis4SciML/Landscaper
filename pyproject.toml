@@ -47,6 +47,9 @@ dev = [
     "pytest-html>=4.1.1",
     "ruff>=0.11.12",
 ]
+examples = [
+    "ipython>=8.36.0",
+]
 
 [tool.mypy]
 [[tool.mypy.overrides]]

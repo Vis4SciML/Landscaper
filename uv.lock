@@ -1287,6 +1287,10 @@ dev = [
     { name = "pytest-html" },
     { name = "ruff" },
 ]
+examples = [
+    { name = "ipython", version = "8.36.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "ipython", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1320,6 +1324,7 @@ dev = [
     { name = "pytest-html", specifier = ">=4.1.1" },
     { name = "ruff", specifier = ">=0.11.12" },
 ]
+examples = [{ name = "ipython", specifier = ">=8.36.0" }]
 
 [[package]]
 name = "markdown"
