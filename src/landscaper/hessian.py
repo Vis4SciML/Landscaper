@@ -58,7 +58,6 @@ def generic_generator(
     params = [p for p in model.parameters() if p.requires_grad]
 
     for sample, target in data:
-        # don't use .to(device) here to avoid memory leaks
         outputs = model.forward(sample)
         loss = criterion(outputs, target)
 
@@ -257,7 +256,7 @@ class PyHessian:
         eigenvalues = []
         eigenvectors = []
 
-        with tqdm(total=top_n, desc="Eigenvectors computed") as pbar:
+        with tqdm(total=top_n, desc="Eigenvectors computed", leave=True) as pbar:
             computed_dim = 0
 
             while computed_dim < top_n:
@@ -276,7 +275,13 @@ class PyHessian:
 
                 v = normalization(v)  # normalize the vector
 
-                ibar = tqdm(range(maxIter), total=maxIter, desc="Iteration")
+                ibar = tqdm(
+                    range(maxIter),
+                    total=maxIter,
+                    desc="Iteration",
+                    leave=False,
+                    position=1,
+                )
                 for _ in ibar:
                     v = orthnormal(v, eigenvectors)
 
@@ -289,7 +294,7 @@ class PyHessian:
                         spec_gap = abs(eigenvalue - tmp_eigenvalue) / (
                             abs(eigenvalue) + 1e-6
                         )
-                        ibar.set_description(f"Err: {spec_gap}")
+                        ibar.set_description(f"Spectral gap: {spec_gap}")
                         if spec_gap < tol:
                             break
                         else:

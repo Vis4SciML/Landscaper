@@ -90,7 +90,6 @@ def scale_direction(direction: list[torch.Tensor], scale: float) -> list[torch.T
     """
     for d in direction:
         d.mul_(scale)
-    return direction
 
 
 def set_parameters(model: torch.nn.Module, parameters: list[torch.Tensor]) -> None:
@@ -101,7 +100,7 @@ def set_parameters(model: torch.nn.Module, parameters: list[torch.Tensor]) -> No
         parameters (list[torch.Tensor]): List of tensors to set as model parameters.
     """
     for p, new_p in zip(model.parameters(), parameters, strict=False):
-        if not torch.is_complex(p):
+        if not torch.is_complex(p) and torch.is_complex(new_p):
             new_p = new_p.real
         p.data.copy_(new_p)
 
@@ -201,7 +200,9 @@ def compute_loss_landscape(
         model_norm = get_model_norm(start_point)
         for i in range(dim):
             dir_norm = get_model_norm(directions[i])
-            scale_direction(directions[i], ((model_norm * distance) / steps) / dir_norm)
+            scale_direction(
+                directions[i], ((model_norm * distance) / (steps / 2)) / dir_norm
+            )
 
         # Generate grid coordinates
         grid_points = list(product(range(steps), repeat=dim))
@@ -221,7 +222,7 @@ def compute_loss_landscape(
                         for _ in range(steps_from_center):
                             add_direction(point_params, directions[dim_idx])
                     elif steps_from_center < 0:
-                        for _ in range(steps_from_center):
+                        for _ in range(-steps_from_center):
                             sub_direction(point_params, directions[dim_idx])
 
                 # Set model parameters
