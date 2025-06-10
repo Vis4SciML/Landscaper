@@ -1,6 +1,6 @@
 """Plots for visualizing topological data analysis results.
-TODO: get rid of plt.show calls so that users can pick between saving the figure & displaying it interactively
 
+TODO: get rid of plt.show calls so that users can pick between saving the figure & displaying it interactively
 """
 
 from collections.abc import Callable
@@ -207,6 +207,7 @@ def contour(
         coordinates (npt.ArrayLike): n-dimensional coordinates.
         loss (npt.ArrayLike): Value for each coordinate.
         figsize (tuple[int, int]): Size of the figure.
+        show (bool): If true, shows the plot; otherwise returns the figure.
 
     Raises:
         ValueError: Raised if rendering fails.
