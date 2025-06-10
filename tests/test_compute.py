@@ -1,13 +1,12 @@
 import pytest
 import pytest_html
-from utils import svg_to_str, mpl_fig_to_report
+from utils import mpl_fig_to_report, svg_to_str
 
 from landscaper import LossLandscape
 
 
-def test_compute(
-    resnet_50, cifar10_test, torch_device, hessian_eigenvecs, resnet_criterion, extras
-):
+@pytest.mark.slow
+def test_compute(resnet_50, cifar10_test, torch_device, hessian_eigenvecs, resnet_criterion, extras):
     def loss_function(model, data):
         batch_loss = 0
         for d in data:

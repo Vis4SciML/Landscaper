@@ -1,22 +1,39 @@
+import os
+import zipfile
+
 import numpy as np
 import pytest
+import requests
 import torch
 import torch.multiprocessing
 import torchvision
 import torchvision.transforms as transforms
-import requests
-import os
+from resnet import resnet50
 from tqdm import tqdm
-import zipfile
 
 from landscaper.hessian import PyHessian
 from landscaper.landscape import LossLandscape
-from resnet import resnet50
 
 test_dir = os.path.dirname(__file__)
-resnet_weight_path = os.path.join(
-    test_dir, "cifar10_models", "state_dicts", "resnet50.pt"
-)
+resnet_weight_path = os.path.join(test_dir, "cifar10_models", "state_dicts", "resnet50.pt")
+
+
+def pytest_addoption(parser):
+    parser.addoption("--runslow", action="store_true", default=False, help="run slow tests")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        # --runslow given in cli: do not skip slow tests
+        return
+    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
 
 
 def pytest_sessionstart(session):
@@ -30,9 +47,7 @@ def pytest_sessionstart(session):
         print("Downloading weights for resnet50...")
         # downloads cifar10 weights for resnet
         # from https://github.com/huyvnphan/PyTorch_CIFAR10/tree/master
-        url = (
-            "https://rutgers.box.com/shared/static/gkw08ecs797j2et1ksmbg1w5t3idf5r5.zip"
-        )
+        url = "https://rutgers.box.com/shared/static/gkw08ecs797j2et1ksmbg1w5t3idf5r5.zip"
         # Streaming, so we can iterate over the response.
         r = requests.get(url, stream=True)
 
@@ -90,17 +105,11 @@ def resnet_50(torch_device):
 
 @pytest.fixture(scope="session")
 def cifar10_test(torch_device):
-    t = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
+    t = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     data_path = os.path.join(test_dir, "cifar10_test")
-    testset = torchvision.datasets.CIFAR10(
-        root=data_path, train=False, download=True, transform=t
-    )
-    testloader = torch.utils.data.DataLoader(
-        testset, batch_size=3, shuffle=False, num_workers=2
-    )
+    testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=t)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=3, shuffle=False, num_workers=2)
 
     data = []
     for idx, d in enumerate(testloader):
