@@ -40,6 +40,14 @@ To install Landscaper with all the dependencies to run the examples, use:
 pip install landscaper[examples]
 ```
 
+### Docker
+
+Additionally, Landscaper provides a Docker image that includes all dependencies, based on the official [PyTorch image](https://hub.docker.com/layers/pytorch/pytorch/2.6.0-cuda12.4-cudnn9-runtime/images/sha256-77f17f843507062875ce8be2a6f76aa6aa3df7f9ef1e31d9d7432f4b0f563dee). You can pull the image from the GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/vis4sciml/landscaper:latest
+```
+
 ## BibTeX Citation 
 If you use Landscaper in your research, please consider citing it. You can use the following BibTeX entry:
 
