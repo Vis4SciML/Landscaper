@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 
-LABEL maintainer="Jiaqing Chen <jchen501@asu.edu>, Nicholas Hadler <nhadler@berkeley.edu>, Tiankai Xie <txie21@asu.edu>, Rostyslav Hnatyshyn <rhnatysh@asu.edu>"
 LABEL org.opencontainers.image.description="Landscaper docker image with PyTorch 2.6.0 with CUDA 12.4."
 LABEL org.opencontainers.image.source=https://github.com/Vis4SciML/Landscaper
 LABEL org.opencontainers.image.licenses=GPL-3.0
