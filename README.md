@@ -10,7 +10,7 @@
 
 `Landscaper` is a comprehensive Python framework designed for exploring the loss landscapes of deep learning models. It integrates three key functionalities:
 
-- **Construction**: Builds detailed loss landscape representations through low and high-dimensional sampling.
+- **Construction**: Builds detailed loss landscape representations through low and high-dimensional sampling, including Hessian analysis adapted from [PyHessian](https://github.com/amirgholami/PyHessian).
 - **Quantification**: Applies advanced metrics, including a novel topological data analysis (TDA) based smoothness metric, enabling new insights into model behavior.
 - **Visualization**: Offers intuitive tools to visualize and interpret loss landscapes, providing actionable insights beyond traditional performance metrics.
 
