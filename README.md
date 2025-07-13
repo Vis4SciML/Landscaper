@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="600">
+<img src="https://github.com/Vis4SciML/Landscaper/blob/main/assets/logo.png?raw=true" width="600">
 <br>
 <h3>A comprehensive Python framework designed for exploring the loss landscapes of deep learning models.</h3> 
 <a href="https://doi.org/10.5281/zenodo.15874987"><img src="https://zenodo.org/badge/978321484.svg" alt="DOI"></a>
