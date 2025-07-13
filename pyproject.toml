@@ -1,14 +1,14 @@
 [project]
 name = "Landscaper"
-version = "1.2.0"
+version = "1.2.1"
 description = "A comprehensive Python framework designed for exploring the loss landscapes of deep learning models."
+license = "BSD-3-Clause-LBNL"
 authors = [
     {name = "Jiaqing Chen", email = "jchen501@asu.edu"},
     {name = "Nicholas Hadler", email = "nhadler@berkeley.edu"},
     {name = "Tiankai Xie", email = "txie21@asu.edu"},
     {name = "Rostyslav Hnatyshyn", email = "rhnatysh@asu.edu"},
 ]
-
 readme = "README.md"
 requires-python = ">=3.10.0, <3.13"
 dependencies = [
@@ -21,6 +21,12 @@ dependencies = [
     "tqdm>=4.67.1",
     "drawsvg>=2.4.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Vis4SciML/Landscaper"
+Documentation = "https://vis4sciml.github.io/Landscaper/"
+Repository = "https://github.com/Vis4SciML/Landscaper"
+Issues = "https://github.com/Vis4SciML/Landscaper/issues"
 
 [project.optional-dependencies]
 docs = [
