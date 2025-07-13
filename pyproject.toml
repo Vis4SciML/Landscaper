@@ -1,6 +1,6 @@
 [project]
 name = "Landscaper"
-version = "1.1.0"
+version = "1.2.0"
 description = "A comprehensive Python framework designed for exploring the loss landscapes of deep learning models."
 authors = [
     {name = "Jiaqing Chen", email = "jchen501@asu.edu"},
