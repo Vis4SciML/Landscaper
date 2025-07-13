@@ -19,10 +19,10 @@ By uniting these aspects, Landscaper empowers users to gain a deeper, more holis
 
 ## Quick Start
 
-Check out the [quick start guide](quickstart.md) for a step-by-step introduction to using Landscaper.
+Check out the [quick start guide](https://vis4sciml.github.io/Landscaper/quickstart/) for a step-by-step introduction to using Landscaper.
 
 ## Documentation
-The full documentation for Landscaper is available at [placeholder]. It includes detailed instructions on installation, usage, and examples. You can build the docs locally by installing the `docs` extras and then running `mkdocs serve`.
+The full documentation for Landscaper is available at [https://vis4sciml.github.io/Landscaper/](https://vis4sciml.github.io/Landscaper/#). It includes detailed instructions on installation, usage, and examples. You can build the docs locally by installing the `docs` extras and then running `mkdocs serve`.
 
 ## Installation
 Landscaper is available on [PyPI](https://pypi.org/project/landscaper/), making it easy to install and integrate into your projects.
