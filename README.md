@@ -3,8 +3,9 @@
 <img src="assets/logo.png" width="600">
 <br>
 <h3>A comprehensive Python framework designed for exploring the loss landscapes of deep learning models.</h3> 
-
+<a href="https://doi.org/10.5281/zenodo.15874987"><img src="https://zenodo.org/badge/978321484.svg" alt="DOI"></a>
 </div>
+
 
 ## Introduction
 
@@ -52,18 +53,14 @@ docker pull ghcr.io/vis4sciml/landscaper:latest
 If you use Landscaper in your research, please consider citing it. You can use the following BibTeX entry:
 
 ```
-@article{CITE_KEY,
-  title = {},
-  author = {},
-  year = {},
-  month = {},
-  journal = {},
-  volume = {},
-  number = {},
-  pages = {},
-  publisher = {},
-  issn = {},
-  doi = {},
+@misc{https://doi.org/10.5281/zenodo.15874987,
+  doi = {10.5281/ZENODO.15874987},
+  url = {https://zenodo.org/doi/10.5281/zenodo.15874987},
+  author = {Jiaqing Chen and Nicholas Hadler and Tiankai Xie and Rostyslav Hnatyshyn},
+  title = {Vis4SciML/Landscaper},
+  publisher = {Zenodo},
+  year = {2025},
+  copyright = {Lawrence Berkeley National Labs BSD Variant License}
 }
 ```
 
