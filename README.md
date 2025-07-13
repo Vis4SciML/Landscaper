@@ -15,27 +15,27 @@
 - **Quantification**: Applies advanced metrics, including a novel topological data analysis (TDA) based smoothness metric, enabling new insights into model behavior.
 - **Visualization**: Offers intuitive tools to visualize and interpret loss landscapes, providing actionable insights beyond traditional performance metrics.
 
-By uniting these aspects, Landscaper empowers users to gain a deeper, more holistic understanding of their model's behavior. More information can be found in the [documentation] or in the [paper].
+By uniting these aspects, `Landscaper` empowers users to gain a deeper, more holistic understanding of their model's behavior. More information can be found in the [documentation](https://vis4sciml.github.io/Landscaper/#).
 
 ## Quick Start
 
-Check out the [quick start guide](https://vis4sciml.github.io/Landscaper/quickstart/) for a step-by-step introduction to using Landscaper.
+Check out the [quick start guide](https://vis4sciml.github.io/Landscaper/quickstart/) for a step-by-step introduction to using `Landscaper`.
 
 ## Documentation
-The full documentation for Landscaper is available at [https://vis4sciml.github.io/Landscaper/](https://vis4sciml.github.io/Landscaper/#). It includes detailed instructions on installation, usage, and examples. You can build the docs locally by installing the `docs` extras and then running `mkdocs serve`.
+The full documentation for `Landscaper` is available at [https://vis4sciml.github.io/Landscaper/](https://vis4sciml.github.io/Landscaper/#). It includes detailed instructions on installation, usage, and examples. You can build the docs locally by installing the `docs` extras and then running `mkdocs serve`.
 
 ## Installation
-Landscaper is available on [PyPI](https://pypi.org/project/landscaper/), making it easy to install and integrate into your projects.
+`Landscaper` is available on [PyPI](https://pypi.org/project/landscaper/), making it easy to install and integrate into your projects.
 
-Landscaper requires Python `>=3.10,<3.13` and PyTorch `>=2.0.0` and is compatible with both CPU and GPU environments. To install PyTorch, follow the instructions on the [PyTorch website](https://pytorch.org/get-started/locally/) to select the appropriate version for your system. Then you can install Landscaper using pip. 
+`Landscaper` requires Python `>=3.10,<3.13` and PyTorch `>=2.0.0` and is compatible with both CPU and GPU environments. To install PyTorch, follow the instructions on the [PyTorch website](https://pytorch.org/get-started/locally/) to select the appropriate version for your system. Then you can install `Landscaper` using pip. 
 
-To install Landscaper, run the following command:
+To install `Landscaper`, run the following command:
 
 ```bash
 pip install landscaper
 ```
 
-To install Landscaper with all the dependencies to run the examples, use:
+To install `Landscaper` with all the dependencies to run the examples, use:
 
 ```bash
 pip install landscaper[examples]
@@ -43,14 +43,14 @@ pip install landscaper[examples]
 
 ### Docker
 
-Additionally, Landscaper provides a Docker image that includes all dependencies, based on the official [PyTorch image](https://hub.docker.com/layers/pytorch/pytorch/2.6.0-cuda12.4-cudnn9-runtime/images/sha256-77f17f843507062875ce8be2a6f76aa6aa3df7f9ef1e31d9d7432f4b0f563dee). You can pull the image from the GitHub Container Registry:
+Additionally, `Landscaper` provides a Docker image that includes all dependencies, based on the official [PyTorch image](https://hub.docker.com/layers/pytorch/pytorch/2.6.0-cuda12.4-cudnn9-runtime/images/sha256-77f17f843507062875ce8be2a6f76aa6aa3df7f9ef1e31d9d7432f4b0f563dee). You can pull the image from the GitHub Container Registry:
 
 ```bash
 docker pull ghcr.io/vis4sciml/landscaper:latest
 ```
 
 ## BibTeX Citation 
-If you use Landscaper in your research, please consider citing it. You can use the following BibTeX entry:
+If you use `Landscaper` in your research, please consider citing it. You can use the following BibTeX entry:
 
 ```
 @misc{https://doi.org/10.5281/zenodo.15874987,
