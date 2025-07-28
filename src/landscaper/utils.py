@@ -11,7 +11,9 @@ DeviceStr = Literal["cuda", "cpu", "mps", "xpu", "ipu", "hpu"]
 Number = int | float
 
 
-def generate_random_orthogonal_directions(model: torch.nn.Module, n: int = 3) -> list[list[torch.Tensor]]:
+def generate_random_orthogonal_directions(
+    model: torch.nn.Module, n: int = 3
+) -> list[list[torch.Tensor]]:
     """Generates n random orthogonal directions in the parameter space of the model.
 
     Args:
@@ -25,7 +27,9 @@ def generate_random_orthogonal_directions(model: torch.nn.Module, n: int = 3) ->
     while len(directions) != n:
         random_dir = [torch.randn_like(p.data) for p in model.parameters()]
         for prev_dir in directions:
-            dot_product = sum((d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False))
+            dot_product = sum(
+                (d1 * d2).sum() for d1, d2 in zip(random_dir, prev_dir, strict=False)
+            )
 
             for j, (d1, d2) in enumerate(zip(random_dir, prev_dir, strict=False)):
                 random_dir[j] = d1 - dot_product * d2
@@ -46,7 +50,9 @@ def group_product(xs: list[torch.Tensor], ys: list[torch.Tensor]) -> torch.Tenso
     return sum([torch.sum(x * y) for (x, y) in zip(xs, ys, strict=False)])
 
 
-def group_add(params: list[torch.Tensor], update: list[torch.Tensor], alpha: float = 1) -> list[torch.Tensor]:
+def group_add(
+    params: list[torch.Tensor], update: list[torch.Tensor], alpha: float = 1
+) -> list[torch.Tensor]:
     """Adds the update to the parameters with a scaling factor alpha.
 
     Params = params + update*alpha

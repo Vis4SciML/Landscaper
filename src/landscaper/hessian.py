@@ -200,8 +200,8 @@ class PyHessian:
         Returns:
             tuple: A tuple containing the eigenvalue (float) and the Hessian-vector product (list of tensors).
         """
-        THv = [torch.zeros_like(p) for p in self.params]  # accumulate result
 
+        THv = [torch.zeros_like(p) for p in self.params]  # acc
         if self.use_complex:
             THv = [
                 torch.complex(t, t.clone()) if not torch.is_complex(t) else t
@@ -312,7 +312,7 @@ class PyHessian:
 
         return eigenvalues, eigenvectors
 
-    def trace(self, maxIter: int = 100, tol: float = 1e-3) -> list[float]:
+    def trace(self, maxIter: int = 100, tol: float = 1e-3) -> float:
         """Computes the trace of the Hessian using Hutchinson's method.
 
         Args:
@@ -320,7 +320,7 @@ class PyHessian:
             tol (float): The relative tolerance for convergence. Defaults to 1e-3.
 
         Returns:
-            list[float]: A list containing the trace of the Hessian computed over the iterations.
+           float: An estimated trace of the Hessian.
         """
         assert not self.model.training
 
@@ -346,11 +346,11 @@ class PyHessian:
             _, Hv = self.hv_product(v)
             trace_vhv.append(group_product(Hv, v).cpu().item())
             if abs(np.mean(trace_vhv) - trace) / (abs(trace) + 1e-6) < tol:
-                return trace_vhv
+                return np.mean(trace_vhv)
             else:
                 trace = np.mean(trace_vhv)
 
-        return trace_vhv
+        return np.mean(trace_vhv)
 
     def density(
         self, iter: int = 100, n_v: int = 1
