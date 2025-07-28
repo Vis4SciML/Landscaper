@@ -1,16 +1,16 @@
 """Module for computing loss landscapes for PyTorch models."""
 
-# Landscaper Copyright (c) 2025, The Regents of the University of California, 
-# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the 
+# Landscaper Copyright (c) 2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the
 # U.S. Dept. of Energy), University of California, Berkeley, and Arizona State University. All rights reserved.
 
-# If you have questions about your rights to use or distribute this software, 
+# If you have questions about your rights to use or distribute this software,
 # please contact Berkeley Lab's Intellectual Property Office at IPO@lbl.gov.
 
-# NOTICE. This Software was developed under funding from the U.S. Department of Energy and 
+# NOTICE. This Software was developed under funding from the U.S. Department of Energy and
 # the U.S. Government consequently retains certain rights. As such, the U.S. Government has been
-# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide 
-# license in the Software to reproduce, distribute copies to the public, prepare derivative works, 
+# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide
+# license in the Software to reproduce, distribute copies to the public, prepare derivative works,
 # and perform publicly and display publicly, and to permit others to do so.
 
 import copy
@@ -258,12 +258,34 @@ def compute_loss_landscape(
             set_parameters(model, original_weights)
 
         # Handle extreme values in loss surface
+        finite_mask = np.isfinite(loss_hypercube)
+        if np.any(finite_mask):
+            finite_values = loss_hypercube[finite_mask]
+            nan_replacement = np.mean(finite_values)
+            posinf_replacement = np.max(finite_values)
+            neginf_replacement = np.min(finite_values)
+        else:
+            # Fallback if no finite values exist
+            raise ValueError(
+                "Warning: No finite values found in the loss hypercube. Setting replacements to defaults."
+            )
+
         loss_hypercube = np.nan_to_num(
             loss_hypercube,
-            nan=np.nanmean(loss_hypercube),
-            posinf=np.nanmax(loss_hypercube[~np.isinf(loss_hypercube)]),
-            neginf=np.nanmin(loss_hypercube[~np.isinf(loss_hypercube)]),
+            nan=nan_replacement,
+            posinf=posinf_replacement,
+            neginf=neginf_replacement,
         )
+
+        # Add small noise to max values to avoid flat regions
+        max_mask = loss_hypercube == np.max(loss_hypercube)
+        if np.any(max_mask):
+            noise_scale = (
+                np.std(loss_hypercube[~max_mask]) * 0.01 if np.any(~max_mask) else 0.01
+            )
+            loss_hypercube[max_mask] += np.random.normal(
+                0, noise_scale, np.sum(max_mask)
+            )
 
         # Print statistics about the loss hypercube
         print(
