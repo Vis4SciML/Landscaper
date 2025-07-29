@@ -3,17 +3,17 @@
 TODO: get rid of plt.show calls so that users can pick between saving the figure & displaying it interactively
 """
 
-# Landscaper Copyright (c) 2025, The Regents of the University of California, 
-# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the 
+# Landscaper Copyright (c) 2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the
 # U.S. Dept. of Energy), University of California, Berkeley, and Arizona State University. All rights reserved.
 
-# If you have questions about your rights to use or distribute this software, 
+# If you have questions about your rights to use or distribute this software,
 # please contact Berkeley Lab's Intellectual Property Office at IPO@lbl.gov.
 
-# NOTICE. This Software was developed under funding from the U.S. Department of Energy and 
+# NOTICE. This Software was developed under funding from the U.S. Department of Energy and
 # the U.S. Government consequently retains certain rights. As such, the U.S. Government has been
-# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide 
-# license in the Software to reproduce, distribute copies to the public, prepare derivative works, 
+# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide
+# license in the Software to reproduce, distribute copies to the public, prepare derivative works,
 # and perform publicly and display publicly, and to permit others to do so.
 
 from collections.abc import Callable
@@ -30,7 +30,8 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from scipy.interpolate import interp1d
 
-from .tda import get_persistence_dict
+from .tda import get_persistence_dict, merge_tree_layout, digraph_mt
+import networkx as nx
 from .utils import Number
 
 
@@ -58,7 +59,9 @@ def persistence_barcode(
     plt.show()
 
 
-def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number) -> Callable[[Number], Number]:
+def linearScale(
+    min_val: Number, max_val: Number, new_min: Number, new_max: Number
+) -> Callable[[Number], Number]:
     """Creates a linear scale that maps [min_val, max_val] -> [new_min, new_max]; similar to d3's `linearScale`.
 
     Args:
@@ -156,7 +159,9 @@ def topology_profile(
     yScale = linearScale(loss_min, loss_max, height - marginBottom, marginTop)
 
     svg = dw.Drawing(width, height)
-    svg.append(dw.Rectangle(0, 0, width, height, fill="white", stroke="#777"))  # background color
+    svg.append(
+        dw.Rectangle(0, 0, width, height, fill="white", stroke="#777")
+    )  # background color
 
     for d in data:
         yVals = [pt[1] for pt in d]
@@ -164,11 +169,15 @@ def topology_profile(
         maxY = max(yVals)
 
         if gradient:
-            grad = dw.LinearGradient("0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox")
+            grad = dw.LinearGradient(
+                "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
+            )
 
             for t in np.linspace(0.0, 1.0, 100):
                 yValue = minY + t * (maxY - minY)
-                grad.add_stop(f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True))
+                grad.add_stop(
+                    f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
+                )
         else:
             grad = color
 
@@ -340,7 +349,9 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True)
+        surf = ax.plot_surface(
+            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True
+        )
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")
@@ -356,7 +367,9 @@ def surface_3d(
     plt.show()
 
 
-def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
+def hessian_density(
+    eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)
+) -> None | Figure:
     """Plots the density distribution of Hessian eigenvalues.
 
     Args:
@@ -463,7 +476,9 @@ def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = Tr
     plt.show()
 
 
-def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
+def hessian_eigenvalues(
+    top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)
+) -> None | Figure:
     """Plots the top-10 Hessian eigenvalues as an enhanced bar chart.
 
     Args:
@@ -528,3 +543,8 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsi
     if not show:
         return fig
     plt.show()
+
+
+def draw_merge_tree(mt, node_size=300, **kwargs):
+    G, pos = merge_tree_layout(mt, node_size=node_size)
+    nx.draw(G, pos, node_size=node_size, **kwargs)

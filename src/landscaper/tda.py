@@ -1,16 +1,16 @@
 """This module contains for topological data analysis (TDA) of loss landscapes."""
 
-# Landscaper Copyright (c) 2025, The Regents of the University of California, 
-# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the 
+# Landscaper Copyright (c) 2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the
 # U.S. Dept. of Energy), University of California, Berkeley, and Arizona State University. All rights reserved.
 
-# If you have questions about your rights to use or distribute this software, 
+# If you have questions about your rights to use or distribute this software,
 # please contact Berkeley Lab's Intellectual Property Office at IPO@lbl.gov.
 
-# NOTICE. This Software was developed under funding from the U.S. Department of Energy and 
+# NOTICE. This Software was developed under funding from the U.S. Department of Energy and
 # the U.S. Government consequently retains certain rights. As such, the U.S. Government has been
-# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide 
-# license in the Software to reproduce, distribute copies to the public, prepare derivative works, 
+# granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide
+# license in the Software to reproduce, distribute copies to the public, prepare derivative works,
 # and perform publicly and display publicly, and to permit others to do so.
 
 from typing import Literal
@@ -136,4 +136,72 @@ def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
     len_part_dict = {e: len(v) for e, v in e_info.items()}
     nx.set_edge_attributes(g, len_part_dict, "counts")
 
+    # Remove isolated nodes
+    isolated_nodes = list(nx.isolates(g))
+    g.remove_nodes_from(isolated_nodes)
+
     return g
+
+
+def _mt_subtree_length(n, mtg):
+    st = nx.dfs_tree(mtg, source=n)
+    return len(st)
+
+
+def _mt_get_children(n, mtg):
+    # sort them such that n is always first
+    return [n2 if n == n1 else n1 for (n1, n2) in mtg.out_edges(n)]
+
+
+# https://www.sci.utah.edu/~beiwang/publications/Sketch_MT_BeiWang_Supplement_2023.pdf
+def merge_tree_layout(mt, node_size=300):
+    G = digraph_mt(mt)
+
+    pos = {mt.root: [0, 0]}
+    visited = set()
+    visited.add(mt.root)
+    s = [mt.root]
+
+    counts = nx.get_edge_attributes(G, "counts").values()
+    min_c = min(counts)
+    max_c = max(counts)
+
+    norm = lambda x: (x - min_c) / (max_c - min_c)
+
+    while len(s) != 0:
+        n = s.pop()
+        parent_x, parent_y = pos[n]
+        children = _mt_get_children(n, G)
+
+        info = []
+        xs = []
+        for n2 in children:
+            x = _mt_subtree_length(n2, G)
+            y = abs(mt.nodes[n2] - mt.nodes[n])
+            c = G[n][n2]["counts"]
+            xs.append(x)
+            info.append((n2, x, y, c))
+
+        # check for duplicates - use 3a.) of algorithm
+        if len(xs) == len(set(xs)):
+            info.sort(key=lambda x: x[1])
+        else:
+            info.sort(key=lambda x: x[2])
+            t = len(info)
+            evens = [x for i, x in enumerate(info) if i % 2 == 0]  # evens
+            odds = [x for i, x in enumerate(info) if i % 2 != 0]
+
+            if t % 2 == 0:
+                sinfo = evens[::-1] + odds
+            else:
+                sinfo = odds[::-1] + evens
+            info = sinfo
+
+        for i, p in enumerate(info):
+            n_id, x, y, c = p
+            pos[n_id] = [parent_x + (i * x), parent_y - node_size * (1 + norm(c))]
+
+            if n_id not in visited and n_id != mt.root:
+                s.append(n_id)
+
+    return G, pos
