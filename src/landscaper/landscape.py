@@ -135,20 +135,17 @@ class LossLandscape:
             self.ms_complex = ms_complex
         return self.ms_complex
 
-    def get_topological_indices(self) -> dict[int, int]:
+    def get_topological_indices(self, mt) -> dict[int, int]:
         """Returns a dictionary that maps point indices to their topological indices.
 
         Returns:
             (dict[int, int]): A dictionary mapping point indices to their topological indices.
         """
         msc = self.get_ms_complex()
-        mt = self.get_sublevel_tree()
-        if self.topological_indices is None:
-            ti = {}
-            for n in mt.nodes:
-                ti[n] = topological_index(msc, n)
-            self.topological_indices = ti
-        return self.topological_indices
+        ti = {}
+        for n in mt.nodes:
+            ti[n] = topological_index(msc, n)
+        return ti
 
     def get_persistence(self):
         """Returns the persistence of the landscape as a dictionary."""
@@ -193,7 +190,14 @@ class LossLandscape:
         msc = self.get_ms_complex()
         return persistence_barcode(msc, **kwargs)
 
-    def smad(self) -> float:
+    def smad(self, direction=1) -> float:
+        return (
+            self._smad(self.get_sublevel_tree())
+            if direction == 1
+            else self._smad(self.get_super_tree())
+        )
+
+    def _smad(self, mt) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
 
         See our publication for more details.
@@ -201,8 +205,7 @@ class LossLandscape:
         Returns:
             (float) A descriptor of the smoothness of the landscape.
         """
-        mt = self.get_sublevel_tree()
-        ti = self.get_topological_indices()
+        ti = self.get_topological_indices(mt)
 
         if len(mt.branches) == 0:
             return 0.0
@@ -226,7 +229,7 @@ class LossLandscape:
         mt = self.get_sublevel_tree()
         r = mt.nodes[mt.root]
 
-        ti = self.get_topological_indices()
+        ti = self.get_topological_indices(mt)
         minima = [(n, mt.nodes[n]) for (n, idx) in ti.items() if idx == 0]
         minima.sort(key=lambda x: x[1])
         return r - minima[0][1]
