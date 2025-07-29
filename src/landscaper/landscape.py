@@ -226,10 +226,6 @@ class LossLandscape:
         Calculates the difference in persistence between the root
         of the merge tree and the global minimum.
         """
-        mt = self.get_sublevel_tree()
-        r = mt.nodes[mt.root]
-
-        ti = self.get_topological_indices(mt)
-        minima = [(n, mt.nodes[n]) for (n, idx) in ti.items() if idx == 0]
-        minima.sort(key=lambda x: x[1])
-        return r - minima[0][1]
+        msc = self.get_ms_complex()
+        p = msc.persistences
+        return abs(p[-1] - p[0])
