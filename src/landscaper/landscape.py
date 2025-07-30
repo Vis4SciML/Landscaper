@@ -89,6 +89,7 @@ class LossLandscape:
         self.ms_complex = None
         self.sub_tree = None
         self.super_tree = None
+        self.contour_tree = None
         self.topological_indices = None
 
     def save(self, filename: str) -> None:
@@ -121,6 +122,18 @@ class LossLandscape:
             )
         return self.super_tree
 
+    def get_contour_tree(self) -> tp.ContourTree:
+        if self.contour_tree is None:
+            ct = tp.ContourTree(graph=self.graph)
+            ct.build(np.array(self.coords), self.loss.flatten())
+            ct.persistences = dict(ct.sortedNodes)
+            ct.nodes = {n: ct.persistences[n] for n in ct.superNodes}
+            ct.root = ct.sortedNodes[-1][0]
+            ct.edges_ = ct.edges
+            ct.edges = ct.superArcs
+            self.contour_tree = ct
+        return self.contour_tree
+
     def get_ms_complex(self) -> tp.MorseSmaleComplex:
         """Gets the MorseSmaleComplex corresponding to the loss landscape.
 
@@ -129,7 +142,8 @@ class LossLandscape:
         """
         if self.ms_complex is None:
             ms_complex = tp.MorseSmaleComplex(
-                graph=self.graph, gradient="steepest", normalization="feature"
+                graph=self.graph,
+                gradient="steepest",
             )
             ms_complex.build(np.array(self.coords), self.loss.flatten())
             self.ms_complex = ms_complex
@@ -190,14 +204,7 @@ class LossLandscape:
         msc = self.get_ms_complex()
         return persistence_barcode(msc, **kwargs)
 
-    def smad(self, direction=1) -> float:
-        return (
-            self._smad(self.get_sublevel_tree())
-            if direction == 1
-            else self._smad(self.get_super_tree())
-        )
-
-    def _smad(self, mt) -> float:
+    def smad(self) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
 
         See our publication for more details.
@@ -205,18 +212,19 @@ class LossLandscape:
         Returns:
             (float) A descriptor of the smoothness of the landscape.
         """
-        ti = self.get_topological_indices(mt)
+        ct = self.get_contour_tree()
+        ti = self.get_topological_indices(ct)
 
-        if len(mt.branches) == 0:
+        if len(ct.branches) == 0:
             return 0.0
 
         # branch persistence
         bp = []
-        for b in mt.branches:
-            for edge in list(mt.edges):
+        for b in ct.branches:
+            for edge in list(ct.edges):
                 n1, n2 = edge
                 if (b == n1 and ti[n2] == 0) or (b == n2 and ti[n1] == 0):
-                    bp.append(abs(mt.nodes[n1] - mt.nodes[n2]))
+                    bp.append(abs(ct.nodes[n1] - ct.nodes[n2]))
         m = len(bp)
 
         return sum(bp) / m

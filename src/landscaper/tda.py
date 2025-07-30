@@ -162,12 +162,6 @@ def merge_tree_layout(mt, node_size=300):
     visited.add(mt.root)
     s = [mt.root]
 
-    counts = nx.get_edge_attributes(G, "counts").values()
-    min_c = min(counts)
-    max_c = max(counts)
-
-    norm = lambda x: (x - min_c) / (max_c - min_c)
-
     while len(s) != 0:
         n = s.pop()
         parent_x, parent_y = pos[n]
@@ -177,7 +171,7 @@ def merge_tree_layout(mt, node_size=300):
         xs = []
         for n2 in children:
             x = _mt_subtree_length(n2, G)
-            y = abs(mt.nodes[n2] - mt.nodes[n])
+            y = abs(mt.Y[n2] - mt.Y[n])
             c = G[n][n2]["counts"]
             xs.append(x)
             info.append((n2, x, y, c))
@@ -199,9 +193,9 @@ def merge_tree_layout(mt, node_size=300):
 
         for i, p in enumerate(info):
             n_id, x, y, c = p
-            pos[n_id] = [parent_x + (i * x), parent_y - node_size * (1 + norm(c))]
+            px = info[i - 1][1] if i > 0 else 0
+            pos[n_id] = [parent_x + (i * px), parent_y - node_size * min(5, max(1, y))]
 
             if n_id not in visited and n_id != mt.root:
                 s.append(n_id)
-
     return G, pos
