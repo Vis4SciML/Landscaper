@@ -54,7 +54,6 @@ def get_persistence_dict(msc: tp.MorseSmaleComplex):
 def merge_tree(
     loss: npt.ArrayLike,
     coords: npt.ArrayLike,
-    graph: ngl.EmptyRegionGraph,
     direction: Literal[-1, 1] = 1,
 ) -> tp.MergeTree:
     """Helper function used to generate a merge tree for a loss landscape.
@@ -70,7 +69,7 @@ def merge_tree(
         Merge tree for the space.
     """
     loss_flat = loss.flatten()
-    t = tp.MergeTree(graph=graph)
+    t = tp.MergeTree(graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0))
     t.build(np.array(coords), direction * loss_flat)
     return t
 
@@ -110,7 +109,76 @@ def merge_tree_to_nx(mt: tp.MergeTree) -> nx.Graph:
     return g
 
 
-def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
+def _mt_subtree_length(n, mtg):
+    st = nx.dfs_tree(mtg, source=n)
+    return len(st)
+
+
+def _mt_get_children(n, mtg):
+    # sort them such that n is always first
+    return [n2 if n == n1 else n1 for (n1, n2) in mtg.out_edges(n)]
+
+
+# https://www.sci.utah.edu/~beiwang/publications/Sketch_MT_BeiWang_Supplement_2023.pdf
+def tree_layout(t, node_size=300):
+    G = tree_to_nx(t)
+
+    roots = [x for x in G if not G.in_edges(x)]
+    roots.sort(key=lambda x: t.Y[x])
+    n = roots.pop()
+    pos = {n: [0, t.Y[n]]}
+    visited = set()
+    visited.add(n)
+    s = [n]
+
+    branch = 0
+    while len(visited) != len(G):
+        if not s:
+            n = roots.pop()
+            s.append(n)
+            branch += 1
+            pos[n] = [branch, t.Y[n]]
+            visited.add(n)
+
+        n = s.pop()
+        parent_x, parent_y = pos[n]
+        children = _mt_get_children(n, G)
+        info = []
+        xs = []
+        for n2 in children:
+            x = _mt_subtree_length(n2, G)
+            y = t.Y[n2]
+            c = G[n][n2]["counts"]
+            xs.append(x)
+            info.append((n2, x, y, c))
+
+        ignore1 = [x for x in xs if x != 1]
+        # check for duplicates - use 3a.) of algorithm
+        if len(ignore1) == len(set(ignore1)):
+            info.sort(key=lambda x: x[1])
+        else:
+            info.sort(key=lambda x: x[2])
+            evens = [x for i, x in enumerate(info) if i % 2 == 0]  # evens
+            odds = [x for i, x in enumerate(info) if i % 2 != 0]
+
+            if len(info) % 2 == 0:
+                sinfo = evens[::-1] + odds
+            else:
+                sinfo = odds[::-1] + evens
+            info = sinfo
+
+        for i, p in enumerate(info):
+            n_id, x, y, c = p
+            pos[n_id] = [parent_x + i, y]
+
+            if n_id not in visited:
+                s.append(n_id)
+        visited.add(n)
+
+    return G, pos
+
+
+def tree_to_nx(t):
     """Converts a merge tree to a directed graph representation that makes it easy to navigate the hierarchy.
 
     The root is the maximum which points down the tree towards saddles and minima.
@@ -124,12 +192,12 @@ def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
         A networkx DiGraph representation of the merge tree hierarchy.
     """
     g = nx.DiGraph()
-    for n, v in mt.nodes.items():
+    for n, v in t.nodes.items():
         g.add_node(n, value=v)
 
-    g.add_edges_from([(e[1], e[0]) for e in list(mt.edges)])
-    e_info = {(e[1], e[0]): [e[0]] for e in list(mt.edges)}
-    aug_info = {(e[1], e[0]): [e[0], *v] for e, v in mt.augmentedEdges.items()}
+    g.add_edges_from([(e[1], e[0]) for e in list(t.edges)])
+    e_info = {(e[1], e[0]): [e[0]] for e in list(t.edges)}
+    aug_info = {(e[1], e[0]): [e[0], *v] for e, v in t.augmentedEdges.items()}
     e_info.update(aug_info)
 
     nx.set_edge_attributes(g, e_info, "partitions")
@@ -137,65 +205,6 @@ def digraph_mt(mt: tp.MergeTree) -> nx.DiGraph:
     nx.set_edge_attributes(g, len_part_dict, "counts")
 
     # Remove isolated nodes
-    isolated_nodes = list(nx.isolates(g))
-    g.remove_nodes_from(isolated_nodes)
-
+    # isolated_nodes = list(nx.isolates(g))
+    # g.remove_nodes_from(isolated_nodes)
     return g
-
-
-def _mt_subtree_length(n, mtg):
-    st = nx.dfs_tree(mtg, source=n)
-    return len(st)
-
-
-def _mt_get_children(n, mtg):
-    # sort them such that n is always first
-    return [n2 if n == n1 else n1 for (n1, n2) in mtg.out_edges(n)]
-
-
-# https://www.sci.utah.edu/~beiwang/publications/Sketch_MT_BeiWang_Supplement_2023.pdf
-def merge_tree_layout(mt, node_size=300):
-    G = digraph_mt(mt)
-
-    pos = {mt.root: [0, 0]}
-    visited = set()
-    visited.add(mt.root)
-    s = [mt.root]
-
-    while len(s) != 0:
-        n = s.pop()
-        parent_x, parent_y = pos[n]
-        children = _mt_get_children(n, G)
-
-        info = []
-        xs = []
-        for n2 in children:
-            x = _mt_subtree_length(n2, G)
-            y = abs(mt.Y[n2] - mt.Y[n])
-            c = G[n][n2]["counts"]
-            xs.append(x)
-            info.append((n2, x, y, c))
-
-        # check for duplicates - use 3a.) of algorithm
-        if len(xs) == len(set(xs)):
-            info.sort(key=lambda x: x[1])
-        else:
-            info.sort(key=lambda x: x[2])
-            t = len(info)
-            evens = [x for i, x in enumerate(info) if i % 2 == 0]  # evens
-            odds = [x for i, x in enumerate(info) if i % 2 != 0]
-
-            if t % 2 == 0:
-                sinfo = evens[::-1] + odds
-            else:
-                sinfo = odds[::-1] + evens
-            info = sinfo
-
-        for i, p in enumerate(info):
-            n_id, x, y, c = p
-            px = info[i - 1][1] if i > 0 else 0
-            pos[n_id] = [parent_x + (i * px), parent_y - node_size * min(5, max(1, y))]
-
-            if n_id not in visited and n_id != mt.root:
-                s.append(n_id)
-    return G, pos

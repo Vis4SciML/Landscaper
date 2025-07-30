@@ -85,7 +85,6 @@ class LossLandscape:
 
         self.ranges = ranges
         self.dims = self.coords.shape[1]
-        self.graph = ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0)
         self.ms_complex = None
         self.sub_tree = None
         self.super_tree = None
@@ -107,7 +106,7 @@ class LossLandscape:
             A tp.MergeTree object corresponding to the minima of the loss landscape.
         """
         if self.sub_tree is None:
-            self.sub_tree = merge_tree(self.loss, self.coords, self.graph)
+            self.sub_tree = merge_tree(self.loss, self.coords)
         return self.sub_tree
 
     def get_super_tree(self) -> tp.MergeTree:
@@ -117,20 +116,18 @@ class LossLandscape:
             A tp.MergeTree object corresponding to the maxima of the loss landscape.
         """
         if self.super_tree is None:
-            self.super_tree = merge_tree(
-                self.loss, self.coords, self.graph, direction=-1
-            )
+            self.super_tree = merge_tree(self.loss, self.coords, direction=-1)
         return self.super_tree
 
-    def get_contour_tree(self) -> tp.ContourTree:
+    def get_contour_tree(self, **kwargs) -> tp.ContourTree:
         if self.contour_tree is None:
-            ct = tp.ContourTree(graph=self.graph)
+            ct = tp.ContourTree(
+                graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0), **kwargs
+            )
             ct.build(np.array(self.coords), self.loss.flatten())
-            ct.persistences = dict(ct.sortedNodes)
-            ct.nodes = {n: ct.persistences[n] for n in ct.superNodes}
-            ct.root = ct.sortedNodes[-1][0]
-            ct.edges_ = ct.edges
-            ct.edges = ct.superArcs
+            ct.vals = [x for x in ct.sortedNodes if x[0] in ct.superNodes]
+            ct.nodes = {n: dict(ct.vals)[n] for n in ct.superNodes}
+            # TODO: figure out how to draw a contour tree profile
             self.contour_tree = ct
         return self.contour_tree
 
@@ -142,7 +139,7 @@ class LossLandscape:
         """
         if self.ms_complex is None:
             ms_complex = tp.MorseSmaleComplex(
-                graph=self.graph,
+                graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0),
                 gradient="steepest",
             )
             ms_complex.build(np.array(self.coords), self.loss.flatten())

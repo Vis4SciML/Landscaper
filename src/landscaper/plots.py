@@ -30,7 +30,7 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from scipy.interpolate import interp1d
 
-from .tda import get_persistence_dict, merge_tree_layout, digraph_mt
+from .tda import get_persistence_dict, tree_layout
 import networkx as nx
 from .utils import Number
 
@@ -545,6 +545,6 @@ def hessian_eigenvalues(
     plt.show()
 
 
-def draw_merge_tree(mt, node_size=300, **kwargs):
-    G, pos = merge_tree_layout(mt, node_size=node_size)
+def draw_tree(t, node_size=300, **kwargs):
+    G, pos = tree_layout(t, node_size=node_size)
     nx.draw(G, pos, node_size=node_size, **kwargs)
