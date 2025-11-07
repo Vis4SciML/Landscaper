@@ -24,7 +24,7 @@ import topopy as tp
 
 from .compute import compute_loss_landscape
 from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import get_persistence_dict, merge_tree, topological_index
+from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -73,9 +73,7 @@ class LossLandscape:
         self.loss = loss
         # converts meshgrid output of arbitrary dimensions into list of coordinates
         grid = np.meshgrid(*ranges)
-        self.coords = np.array(
-            [list(z) for z in zip(*(x.flat for x in grid), strict=False)]
-        )
+        self.coords = np.array([list(z) for z in zip(*(x.flat for x in grid), strict=False)])
 
         if self.coords.shape[0] != np.multiply.reduce(self.loss.shape):
             raise ValueError(
@@ -90,6 +88,7 @@ class LossLandscape:
         self.super_tree = None
         self.contour_tree = None
         self.topological_indices = None
+        self.loss_range = np.max(loss) - np.min(loss)
 
     def save(self, filename: str) -> None:
         """Saves the loss and coordinates of the landscape to the specified path for later use.
@@ -119,11 +118,9 @@ class LossLandscape:
             self.super_tree = merge_tree(self.loss, self.coords, direction=-1)
         return self.super_tree
 
-    def get_contour_tree(self, **kwargs) -> tp.ContourTree:
+    def get_contour_tree(self, **kwargs) -> PContourTree:
         if self.contour_tree is None:
-            ct = tp.ContourTree(
-                graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0), **kwargs
-            )
+            ct = PContourTree(graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0), **kwargs)
             ct.build(np.array(self.coords), self.loss.flatten())
             ct.vals = [x for x in ct.sortedNodes if x[0] in ct.superNodes]
             ct.nodes = {n: dict(ct.vals)[n] for n in ct.superNodes}
@@ -173,9 +170,7 @@ class LossLandscape:
         if self.dims == 2:
             return surface_3d(self.ranges, self.loss, **kwargs)
         else:
-            raise ValueError(
-                f"Cannot visualize a landscape with {self.dims} dimensions."
-            )
+            raise ValueError(f"Cannot visualize a landscape with {self.dims} dimensions.")
 
     def show_profile(self, **kwargs):
         """Renders the topological profile of the landscape.
@@ -201,10 +196,12 @@ class LossLandscape:
         msc = self.get_ms_complex()
         return persistence_barcode(msc, **kwargs)
 
-    def smad(self) -> float:
+    def smad(self, normalize: bool = False) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
-
         See our publication for more details.
+
+        Args:
+            normalize (boolean): If true, divides each saddle-minimum gap by the total range of the loss values.
 
         Returns:
             (float) A descriptor of the smoothness of the landscape.
@@ -221,10 +218,11 @@ class LossLandscape:
             for edge in list(ct.edges):
                 n1, n2 = edge
                 if (b == n1 and ti[n2] == 0) or (b == n2 and ti[n1] == 0):
-                    bp.append(abs(ct.nodes[n1] - ct.nodes[n2]))
-        m = len(bp)
-
-        return sum(bp) / m
+                    gap = abs(ct.nodes[n1] - ct.nodes[n2])
+                    if normalize:
+                        gap = gap / self.loss_range
+                    bp.append(gap)
+        return sum(bp) / len(bp)
 
     def persistence_range(self) -> float:
         """

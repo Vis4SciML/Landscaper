@@ -21,6 +21,7 @@ import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
 import topopy as tp
+from topopy import ContourTree
 
 
 def bottleneck_distance(p1: npt.ArrayLike, p2: npt.ArrayLike) -> float:
@@ -208,3 +209,95 @@ def tree_to_nx(t):
     # isolated_nodes = list(nx.isolates(g))
     # g.remove_nodes_from(isolated_nodes)
     return g
+
+
+# patched contour tree class from topopy
+class PContourTree(ContourTree):
+    def _process_tree(self, thisTree, thatTree):
+        # Get all of the leaf nodes that are not branches in the other
+        # tree
+        if len(thisTree.nodes()) > 1:
+            leaves = set(
+                [
+                    v
+                    for v in thisTree.nodes()
+                    if thisTree.in_degree(v) == 0
+                    and v in thatTree
+                    and thatTree.in_degree(v) < 2
+                ]
+            )
+        else:
+            leaves = set()
+
+        while len(leaves) > 0:
+            v = leaves.pop()
+
+            # if self.debug:
+            #     sys.stdout.write('\tProcessing {} -> {}\n'
+            #                      .format(v, thisTree.edges(v)[0][1]))
+
+            # Take the leaf and edge out of the input tree and place it
+            # on the CT
+            edges = list(thisTree.out_edges(v))
+
+            e1 = edges[0][0]
+            e2 = edges[0][1]
+            # This may be a bit beside the point, but if we want all of
+            # our edges pointing 'up,' we can verify that the edges we
+            # add have the lower vertex pointing to the upper vertex.
+            # This is useful only for nicely plotting with some graph
+            # tools (graphviz/networkx), and I guess for consistency
+            # sake.
+            if self.Y[e1] < self.Y[e2]:
+                self.edges.append((e1, e2))
+            else:
+                self.edges.append((e2, e1))
+
+            # Removing the node will remove its constituent edges from
+            # thisTree
+            thisTree.remove_node(v)
+
+            # This is the root node of the other tree
+            if thatTree.out_degree(v) == 0:
+                thatTree.remove_node(v)
+
+            # This is a "regular" node in the other tree, suppress it
+            # there, but be sure to glue the upper and lower portions
+            # together
+            else:
+                # The other ends of the node being removed are added to
+                # "that" tree
+
+                if len(thatTree.in_edges(v)) > 0:
+                    startNode = list(thatTree.in_edges(v))[0][0]
+                else:
+                    # This means we are at the root of the other tree,
+                    # we can safely remove this node without connecting
+                    # its predecessor with its descendant
+                    startNode = None
+
+                if len(thatTree.out_edges(v)) > 0:
+                    endNode = list(thatTree.out_edges(v))[0][1]
+                else:
+                    # This means we are at a leaf of the other tree,
+                    # we can safely remove this node without connecting
+                    # its predecessor with its descendant
+                    endNode = None
+
+                if startNode is not None and endNode is not None:
+                    thatTree.add_edge(startNode, endNode)
+
+                thatTree.remove_node(v)
+
+            if len(thisTree.nodes()) > 1:
+                leaves = set(
+                    [
+                        v
+                        for v in thisTree.nodes()
+                        if thisTree.in_degree(v) == 0
+                        and v in thatTree
+                        and thatTree.in_degree(v) < 2
+                    ]
+                )
+            else:
+                leaves = set()
