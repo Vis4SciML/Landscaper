@@ -196,6 +196,46 @@ class LossLandscape:
         msc = self.get_ms_complex()
         return persistence_barcode(msc, **kwargs)
 
+    def index_with_basins(self, values, ordered=True):
+        """Meant to be used with basin_metric to derive per-basin values. Gets the unstable manifolds from
+        the landscape (i.e. points in a basin) and indexes into values
+        .
+        Args:
+            values: Values to index into using the indices of points that belong to each basin.
+            ordered: If true, basins are returned as a dictionary of minima index to a list of values; else its a 2D array
+
+        Returns:
+            Either a dict or a np.array depending on the settings for ordered.
+        """
+        assert values.shape == self.loss.shape
+        um = self.get_ms_complex().get_unstable_manifolds()
+        if ordered:
+            return {k: values.flatten()[np.array(v)] for (k, v) in um.items()}
+        return [values.flatten()[np.array(v)] for v in um.values()]
+
+    def basin_metric(self, values, per_basin_fn=lambda x: np.mean(x), final_op=lambda x: np.mean(x)):
+        """Use this function to build custom metrics for basins. You can pass any np.array to values as long
+        as it matches the shape of the loss landscape. This function indexes into the values array correctly
+        to get the corresponding values. See gnn.ipynb in the documentation for more details and ideas on what
+        can be done with this function.
+
+        Args:
+            values: Function values to use for the metric.
+            per_basin_fn: What form of aggregation (if any) is being used for each basin's values. Defaults to np.mean.
+            final_op: How the final result is calculated; defaults to np.mean.
+
+        Returns:
+            A metric over all of the basins in the landscape.
+        """
+        msc = self.get_ms_complex()
+        basins = self.index_with_basins(values)
+
+        bv = np.zeros(len(msc.min_indices))
+        for i, x in enumerate(msc.min_indices):
+            bv[i] = per_basin_fn(basins[x])
+
+        return final_op(bv)
+
     def smad(self, normalize: bool = False, weighted: bool = False) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
         See our publication for more details.
