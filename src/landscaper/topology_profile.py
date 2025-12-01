@@ -138,10 +138,7 @@ def generate_profile(mt: tp.MergeTree) -> list[list[list[float]]]:
         right = [[i + node["center"], y] for i, y in enumerate(node["points"])]
 
         node["points"].reverse()
-        left = [
-            [-1 * (len(node["points"]) - i) + node["center"], y]
-            for i, y in enumerate(node["points"])
-        ]
+        left = [[-1 * (len(node["points"]) - i) + node["center"], y] for i, y in enumerate(node["points"])]
 
         pts = left + right
         if len(pts) > 0:

@@ -24,7 +24,7 @@ import topopy as tp
 
 from .compute import compute_loss_landscape
 from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree
+from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree, saddle_minima_pairs
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -196,33 +196,49 @@ class LossLandscape:
         msc = self.get_ms_complex()
         return persistence_barcode(msc, **kwargs)
 
-    def smad(self, normalize: bool = False) -> float:
+    def smad(self, normalize: bool = False, weighted: bool = False) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
         See our publication for more details.
 
         Args:
             normalize (boolean): If true, divides each saddle-minimum gap by the total range of the loss values.
+            weighted (boolean): If true, weights each saddle-minimum gap by the volume of the basin created by the saddle-minimum pair.
 
         Returns:
             (float) A descriptor of the smoothness of the landscape.
         """
         ct = self.get_contour_tree()
         ti = self.get_topological_indices(ct)
+        msc = self.get_ms_complex()
 
         if len(ct.branches) == 0:
             return 0.0
 
+        tot = len(self.loss.flatten())
         # branch persistence
-        bp = []
-        for b in ct.branches:
-            for edge in list(ct.edges):
-                n1, n2 = edge
-                if (b == n1 and ti[n2] == 0) or (b == n2 and ti[n1] == 0):
-                    gap = abs(ct.nodes[n1] - ct.nodes[n2])
-                    if normalize:
-                        gap = gap / self.loss_range
-                    bp.append(gap)
-        return sum(bp) / len(bp)
+        um = msc.get_unstable_manifolds()
+        sp = saddle_minima_pairs(ct, ti)
+        bp = np.empty(len(sp))
+        vol = np.empty(len(sp))
+
+        for i, (n1, n2) in enumerate(sp):
+            minima = n1 if (ti[n1] == 0) else n2
+            gap = abs(ct.nodes[n1] - ct.nodes[n2])
+            if normalize:
+                gap = gap / self.loss_range
+            vol[i] = len(um[minima]) / tot
+            bp[i] = gap
+
+        if not weighted:
+            return np.mean(bp)
+
+        bp = np.log(bp)
+        vol = np.log(vol)
+
+        x = bp + vol
+        x = np.sum(np.exp(x)) / len(x)
+
+        return x
 
     def persistence_range(self) -> float:
         """

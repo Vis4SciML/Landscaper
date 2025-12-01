@@ -211,6 +211,27 @@ def tree_to_nx(t):
     return g
 
 
+def saddle_minima_pairs(ct: ContourTree, ti: dict[int, int]) -> list[tuple[int, int]]:
+    """Iterates through the edges in the contour tree and returns all edges that are saddle-minima pairs.
+
+    Args:
+        ct: The contour tree to get saddle minima pairs for.
+        ti: Dictionary of topological indices for each critical point; use LossLandscape.get_topological indices() to
+        get this from the landscape.
+
+    Returns:
+        A list of saddle-minima pairs.
+    """
+    pairs = []
+    for e in list(ct.edges):
+        n1, n2 = e
+        for b in ct.branches:
+            if (b == n1 and ti[n2] == 0) or (b == n2 and ti[n1] == 0):
+                pairs.append((n1, n2))
+                break
+    return pairs
+
+
 # patched contour tree class from topopy
 class PContourTree(ContourTree):
     def _process_tree(self, thisTree, thatTree):
@@ -221,9 +242,7 @@ class PContourTree(ContourTree):
                 [
                     v
                     for v in thisTree.nodes()
-                    if thisTree.in_degree(v) == 0
-                    and v in thatTree
-                    and thatTree.in_degree(v) < 2
+                    if thisTree.in_degree(v) == 0 and v in thatTree and thatTree.in_degree(v) < 2
                 ]
             )
         else:
@@ -294,9 +313,7 @@ class PContourTree(ContourTree):
                     [
                         v
                         for v in thisTree.nodes()
-                        if thisTree.in_degree(v) == 0
-                        and v in thatTree
-                        and thatTree.in_degree(v) < 2
+                        if thisTree.in_degree(v) == 0 and v in thatTree and thatTree.in_degree(v) < 2
                     ]
                 )
             else:
