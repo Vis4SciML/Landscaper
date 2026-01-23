@@ -1,5 +1,6 @@
 import pytest
 from utils import mpl_fig_to_report
+
 import landscaper.plots as lsplt
 
 
@@ -10,6 +11,12 @@ def test_surface(landscape_2d, extras):
 
 def test_contour(landscape_2d, extras):
     f = landscape_2d.show_contour(show=False)
+    mpl_fig_to_report(f, extras)
+
+
+def test_contour_with_vmin_vmax(landscape_2d, extras):
+    """Test contour plot with custom vmin and vmax parameters."""
+    f = landscape_2d.show_contour(show=False, vmin=0.1, vmax=0.9)
     mpl_fig_to_report(f, extras)
 
 
