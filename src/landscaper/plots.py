@@ -251,12 +251,8 @@ def contour(
 
     # Create logarithmically spaced levels
     # Use user-provided vmin/vmax if specified, otherwise calculate from data
-    if vmin is not None and vmax is not None:
-        min_val = vmin
-        max_val = vmax
-    else:
-        min_val = np.min(loss[loss > 0]) if vmin is None else vmin
-        max_val = np.max(loss) if vmax is None else vmax
+    min_val = vmin if vmin is not None else np.min(loss[loss > 0])
+    max_val = vmax if vmax is not None else np.max(loss)
 
     if min_val >= max_val:
         raise ValueError("Invalid level range")
@@ -287,8 +283,8 @@ def contour(
     except Exception as e:
         print(f"Warning: Log-scale contour plot failed ({e}). Using linear scale...")
         try:
-            # Try linear scale with fewer levels
-            levels = np.linspace(np.min(loss), np.max(loss), 20)
+            # Try linear scale with fewer levels, respecting user-provided vmin/vmax
+            levels = np.linspace(min_val, max_val, 20)
             contour_filled = ax1.contourf(X, Y, loss, levels=levels, cmap="RdYlBu_r")
             contour_lines = ax1.contour(
                 X,
@@ -302,7 +298,7 @@ def contour(
             ax1.clabel(contour_lines, inline=True, fontsize=8, fmt="%.3f")
         except Exception as e:
             print(f"Warning: Linear scale plotting failed ({e}). Using pcolormesh...")
-            contour_filled = ax1.pcolormesh(X, Y, loss, cmap="RdYlBu_r", shading="auto")
+            contour_filled = ax1.pcolormesh(X, Y, loss, cmap="RdYlBu_r", shading="auto", vmin=min_val, vmax=max_val)
 
     try:
         plt.colorbar(contour_filled, ax=ax1, label="Loss")
