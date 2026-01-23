@@ -59,9 +59,7 @@ def persistence_barcode(
     plt.show()
 
 
-def linearScale(
-    min_val: Number, max_val: Number, new_min: Number, new_max: Number
-) -> Callable[[Number], Number]:
+def linearScale(min_val: Number, max_val: Number, new_min: Number, new_max: Number) -> Callable[[Number], Number]:
     """Creates a linear scale that maps [min_val, max_val] -> [new_min, new_max]; similar to d3's `linearScale`.
 
     Args:
@@ -159,9 +157,7 @@ def topology_profile(
     yScale = linearScale(loss_min, loss_max, height - marginBottom, marginTop)
 
     svg = dw.Drawing(width, height)
-    svg.append(
-        dw.Rectangle(0, 0, width, height, fill="white", stroke="#777")
-    )  # background color
+    svg.append(dw.Rectangle(0, 0, width, height, fill="white", stroke="#777"))  # background color
 
     for d in data:
         yVals = [pt[1] for pt in d]
@@ -169,15 +165,11 @@ def topology_profile(
         maxY = max(yVals)
 
         if gradient:
-            grad = dw.LinearGradient(
-                "0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox"
-            )
+            grad = dw.LinearGradient("0%", "100%", "0%", "0%", gradientUnits="objectBoundingBox")
 
             for t in np.linspace(0.0, 1.0, 100):
                 yValue = minY + t * (maxY - minY)
-                grad.add_stop(
-                    f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True)
-                )
+                grad.add_stop(f"{t * 100}%", basinColors(yValue).to_string(hex=True, upper=True))
         else:
             grad = color
 
@@ -349,9 +341,7 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(
-            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True
-        )
+        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True)
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")
@@ -367,9 +357,7 @@ def surface_3d(
     plt.show()
 
 
-def hessian_density(
-    eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)
-) -> None | Figure:
+def hessian_density(eigen: npt.ArrayLike, weight: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
     """Plots the density distribution of Hessian eigenvalues.
 
     Args:
@@ -476,9 +464,7 @@ def hessian_density(
     plt.show()
 
 
-def hessian_eigenvalues(
-    top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)
-) -> None | Figure:
+def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsize=(12, 6)) -> None | Figure:
     """Plots the top-10 Hessian eigenvalues as an enhanced bar chart.
 
     Args:
@@ -545,6 +531,14 @@ def hessian_eigenvalues(
     plt.show()
 
 
-def draw_tree(t, node_size=300, **kwargs):
-    G, pos = tree_layout(t, node_size=node_size)
+def draw_tree(t: tp.MergeTree, log_scale: bool = False, node_size: int = 300, **kwargs):
+    """Draws a merge tree as a networkx directed graph.
+
+    Args:
+        t: Merge tree to visualize.
+        log_scale: Whether or not the node values should have a log applied to them.
+        node_size: The size of the nodes in pixels when drawing.
+        **kwargs: See `networkx.draw` for keyword arguments.
+    """
+    G, pos = tree_layout(t, log_scale=log_scale, node_size=node_size)
     nx.draw(G, pos, node_size=node_size, **kwargs)

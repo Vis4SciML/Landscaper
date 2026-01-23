@@ -120,26 +120,44 @@ def _mt_get_children(n, mtg):
     return [n2 if n == n1 else n1 for (n1, n2) in mtg.out_edges(n)]
 
 
-# https://www.sci.utah.edu/~beiwang/publications/Sketch_MT_BeiWang_Supplement_2023.pdf
-def tree_layout(t, node_size=300):
+def tree_layout(
+    t: tp.MergeTree, log_scale: bool = False, node_size: int = 300
+) -> tuple[nx.DiGraph, dict[int, list[float]]]:
+    """Lays out a mergetree according to the algorithm outlined in the paper
+    ["Sketching Merge Trees for Scientific Data Visualization"](https://arxiv.org/abs/2101.03196)
+
+    Args:
+        t: The merge tree to lay out.
+        log_scale: Whether or not the node values should be log scaled.
+        node_size: The size of the nodes in pixels. Used during layout to prevent overlap.
+
+    Returns:
+        A networkx.DiGraph representation of the tree and a dict of node ids to lists of x,y positions.
+    """
     G = tree_to_nx(t)
 
+    def get_node_value(x):
+        val = t.Y[x]
+        if log_scale:
+            return np.log(max(val, 1e-12))
+        return val
+
     roots = [x for x in G if not G.in_edges(x)]
-    roots.sort(key=lambda x: t.Y[x])
+    roots.sort(key=lambda x: get_node_value(x))
+
     n = roots.pop()
-    pos = {n: [0, t.Y[n]]}
-    visited = set()
-    visited.add(n)
+    pos = {n: [0.0, get_node_value(n)]}
+    visited = {n}
     s = [n]
 
     branch = 0
     while len(visited) != len(G):
         if not s:
+            branch += 1
             n = roots.pop()
             s.append(n)
-            branch += 1
-            pos[n] = [branch, t.Y[n]]
             visited.add(n)
+            pos[n] = [branch, get_node_value(n)]
 
         n = s.pop()
         parent_x, parent_y = pos[n]
@@ -148,7 +166,7 @@ def tree_layout(t, node_size=300):
         xs = []
         for n2 in children:
             x = _mt_subtree_length(n2, G)
-            y = t.Y[n2]
+            y = get_node_value(n2)
             c = G[n][n2]["counts"]
             xs.append(x)
             info.append((n2, x, y, c))
@@ -156,9 +174,9 @@ def tree_layout(t, node_size=300):
         ignore1 = [x for x in xs if x != 1]
         # check for duplicates - use 3a.) of algorithm
         if len(ignore1) == len(set(ignore1)):
-            info.sort(key=lambda x: x[1])
+            info.sort(key=lambda x: (x[1], x[3], x[0]))
         else:
-            info.sort(key=lambda x: x[2])
+            info.sort(key=lambda x: (x[2], x[1], x[0]))
             evens = [x for i, x in enumerate(info) if i % 2 == 0]  # evens
             odds = [x for i, x in enumerate(info) if i % 2 != 0]
 
@@ -168,8 +186,7 @@ def tree_layout(t, node_size=300):
                 sinfo = odds[::-1] + evens
             info = sinfo
 
-        for i, p in enumerate(info):
-            n_id, x, y, c = p
+        for i, (n_id, x, y, c) in enumerate(info):
             pos[n_id] = [parent_x + i, y]
 
             if n_id not in visited:
@@ -179,7 +196,7 @@ def tree_layout(t, node_size=300):
     return G, pos
 
 
-def tree_to_nx(t):
+def tree_to_nx(t: tp.MergeTree) -> nx.DiGraph:
     """Converts a merge tree to a directed graph representation that makes it easy to navigate the hierarchy.
 
     The root is the maximum which points down the tree towards saddles and minima.
@@ -187,7 +204,7 @@ def tree_to_nx(t):
     while 'counts' contains the number of members along that line.
 
     Args:
-        mt (tp.MergeTree): The merge tree to convert.
+        t (tp.MergeTree): The merge tree to convert.
 
     Returns:
         A networkx DiGraph representation of the merge tree hierarchy.
