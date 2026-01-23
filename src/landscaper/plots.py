@@ -254,12 +254,12 @@ def contour(
     # Use user-provided vmin/vmax if specified, otherwise calculate from data
     # If data was shifted, apply the same shift to user-provided values
     if vmin is not None:
-        original_min = vmin + shift
-        min_val = original_min
+        min_val = vmin + shift
         # Ensure min_val is positive for log scale
         if min_val <= 0:
-            min_val = 1e-6
-            print(f"Warning: vmin adjusted from {original_min} to {min_val} to ensure positive value for log scale")
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
+            min_val = adjusted_min
     else:
         positive_loss = loss[loss > 0]
         if len(positive_loss) > 0:
