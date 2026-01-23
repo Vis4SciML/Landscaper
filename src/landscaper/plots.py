@@ -244,6 +244,7 @@ def contour(
 
     # Ensure all values are positive for log scale
     min_loss = np.min(loss)
+    shift = 0
     if min_loss <= 0:
         shift = -min_loss + 1e-6
         loss = loss + shift
@@ -251,8 +252,16 @@ def contour(
 
     # Create logarithmically spaced levels
     # Use user-provided vmin/vmax if specified, otherwise calculate from data
-    min_val = vmin if vmin is not None else np.min(loss[loss > 0])
-    max_val = vmax if vmax is not None else np.max(loss)
+    # If data was shifted, apply the same shift to user-provided values
+    if vmin is not None:
+        min_val = vmin + shift
+    else:
+        min_val = np.min(loss[loss > 0])
+    
+    if vmax is not None:
+        max_val = vmax + shift
+    else:
+        max_val = np.max(loss)
 
     if min_val >= max_val:
         raise ValueError("Invalid level range")
