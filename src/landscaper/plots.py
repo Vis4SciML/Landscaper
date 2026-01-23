@@ -222,6 +222,8 @@ def contour(
     loss: npt.ArrayLike,
     show: bool = True,
     figsize: tuple[int, int] = (12, 8),
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None | Figure:
     """Draws a contour plot from the provided coordinates and values.
 
@@ -230,6 +232,8 @@ def contour(
         loss (npt.ArrayLike): Value for each coordinate.
         figsize (tuple[int, int]): Size of the figure.
         show (bool): If true, shows the plot; otherwise returns the figure.
+        vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
+        vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
 
     Raises:
         ValueError: Raised if rendering fails.
@@ -246,8 +250,13 @@ def contour(
         print(f"Shifted loss surface by {shift} to ensure positive values")
 
     # Create logarithmically spaced levels
-    min_val = np.min(loss[loss > 0])
-    max_val = np.max(loss)
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    if vmin is not None and vmax is not None:
+        min_val = vmin
+        max_val = vmax
+    else:
+        min_val = np.min(loss[loss > 0]) if vmin is None else vmin
+        max_val = np.max(loss) if vmax is None else vmax
 
     if min_val >= max_val:
         raise ValueError("Invalid level range")
