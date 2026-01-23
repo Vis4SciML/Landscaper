@@ -255,8 +255,16 @@ def contour(
     # If data was shifted, apply the same shift to user-provided values
     if vmin is not None:
         min_val = vmin + shift
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            min_val = 1e-6
+            print(f"Warning: vmin adjusted to {min_val} to ensure positive value for log scale")
     else:
-        min_val = np.min(loss[loss > 0])
+        positive_loss = loss[loss > 0]
+        if len(positive_loss) > 0:
+            min_val = np.min(positive_loss)
+        else:
+            min_val = np.min(loss) if np.min(loss) > 0 else 1e-6
     
     if vmax is not None:
         max_val = vmax + shift
@@ -264,7 +272,7 @@ def contour(
         max_val = np.max(loss)
 
     if min_val >= max_val:
-        raise ValueError("Invalid level range")
+        raise ValueError(f"Invalid level range: vmax ({max_val}) must be greater than vmin ({min_val})")
 
     try:
         levels = np.logspace(np.log10(min_val), np.log10(max_val), 30)
