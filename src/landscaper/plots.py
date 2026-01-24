@@ -345,6 +345,8 @@ def surface_3d(
     loss: npt.ArrayLike,
     show: bool = True,
     figsize: tuple[int, int] = (12, 8),
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
@@ -353,14 +355,28 @@ def surface_3d(
         loss (npt.ArrayLike): Values for the coordinates.
         show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int,int]): Size of the figure.
+        vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
+        vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
     """
     # Create 3D surface plot
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     X, Y = np.meshgrid(coords[0], coords[1])
 
-    min_val = np.min(loss[loss > 0])
-    max_val = np.max(loss)
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    if vmin is not None:
+        min_val = vmin
+    else:
+        positive_loss = loss[loss > 0]
+        if len(positive_loss) > 0:
+            min_val = np.min(positive_loss)
+        else:
+            min_val = np.min(loss)
+    
+    if vmax is not None:
+        max_val = vmax
+    else:
+        max_val = np.max(loss)
 
     try:
         # Try log-scale surface plot
@@ -379,7 +395,7 @@ def surface_3d(
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
         surf = ax.plot_surface(
-            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True
+            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val
         )
         plt.colorbar(surf, label="Loss")
 

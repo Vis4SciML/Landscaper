@@ -20,6 +20,12 @@ def test_contour_with_vmin_vmax(landscape_2d, extras):
     mpl_fig_to_report(f, extras)
 
 
+def test_surface_with_vmin_vmax(landscape_2d, extras):
+    """Test 3D surface plot with custom vmin and vmax parameters."""
+    f = landscape_2d.show(show=False, vmin=0.1, vmax=0.9)
+    mpl_fig_to_report(f, extras)
+
+
 def test_persistence_barcode(landscape_2d, extras):
     f = landscape_2d.show_persistence_barcode(show=False)
     mpl_fig_to_report(f, extras)
