@@ -345,6 +345,8 @@ def surface_3d(
     loss: npt.ArrayLike,
     show: bool = True,
     figsize: tuple[int, int] = (12, 8),
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
@@ -353,14 +355,44 @@ def surface_3d(
         loss (npt.ArrayLike): Values for the coordinates.
         show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int,int]): Size of the figure.
+        vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
+        vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
     """
     # Create 3D surface plot
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     X, Y = np.meshgrid(coords[0], coords[1])
 
-    min_val = np.min(loss[loss > 0])
-    max_val = np.max(loss)
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    if vmin is not None:
+        min_val = vmin
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
+            min_val = adjusted_min
+    else:
+        positive_loss = loss[loss > 0]
+        if len(positive_loss) > 0:
+            min_val = np.min(positive_loss)
+        else:
+            min_val = np.min(loss)
+            if min_val <= 0:
+                min_val = 1e-6
+    
+    if vmax is not None:
+        max_val = vmax
+        # Ensure max_val is positive for log scale
+        if max_val <= 0:
+            raise ValueError(f"vmax ({vmax}) must be positive for log scale")
+    else:
+        max_val = np.max(loss)
+    
+    # Validate that vmax > vmin
+    if min_val >= max_val:
+        vmin_display = vmin if vmin is not None else min_val
+        vmax_display = vmax if vmax is not None else max_val
+        raise ValueError(f"Invalid range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
 
     try:
         # Try log-scale surface plot
@@ -379,7 +411,7 @@ def surface_3d(
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
         surf = ax.plot_surface(
-            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True
+            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val
         )
         plt.colorbar(surf, label="Loss")
 
