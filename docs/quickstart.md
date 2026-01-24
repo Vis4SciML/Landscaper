@@ -121,6 +121,22 @@ landscape.show_contour() # contour plot
 landscape.show_persistence_barcode() # persistence barcode
 ```
 
+### Customizing the 3D Visualization
+
+The `.show()` method supports several parameters to customize the visualization. You can rotate the 3D plot around the z-axis to find the optimal viewing angle:
+
+```python
+# Rotate the plot to different angles
+landscape.show(azim=0)    # View from 0 degrees
+landscape.show(azim=90)   # View from 90 degrees
+landscape.show(azim=180)  # View from 180 degrees
+
+# You can also combine it with other parameters
+landscape.show(azim=45, show=False)  # Get figure object without displaying
+```
+
+The `azim` parameter controls the azimuthal viewing angle (rotation around the z-axis) in degrees, with the default value of 45 degrees. This helps you explore the landscape from different perspectives to better understand its structure.
+
 If you are interested in examining the merge tree, you can visualize it using networkx:
 ```python
 from Landscaper.tda import digraph_mt
