@@ -366,17 +366,33 @@ def surface_3d(
     # Use user-provided vmin/vmax if specified, otherwise calculate from data
     if vmin is not None:
         min_val = vmin
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
+            min_val = adjusted_min
     else:
         positive_loss = loss[loss > 0]
         if len(positive_loss) > 0:
             min_val = np.min(positive_loss)
         else:
             min_val = np.min(loss)
+            if min_val <= 0:
+                min_val = 1e-6
     
     if vmax is not None:
         max_val = vmax
+        # Ensure max_val is positive for log scale
+        if max_val <= 0:
+            raise ValueError(f"vmax ({vmax}) must be positive for log scale")
     else:
         max_val = np.max(loss)
+    
+    # Validate that vmax > vmin
+    if min_val >= max_val:
+        vmin_display = vmin if vmin is not None else min_val
+        vmax_display = vmax if vmax is not None else max_val
+        raise ValueError(f"Invalid range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
 
     try:
         # Try log-scale surface plot
