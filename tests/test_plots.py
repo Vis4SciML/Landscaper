@@ -26,6 +26,19 @@ def test_surface_with_vmin_vmax(landscape_2d, extras):
     mpl_fig_to_report(f, extras)
 
 
+def test_surface_with_azim(landscape_2d, extras):
+    """Test 3D surface plot with custom azimuthal angle (z-axis rotation)."""
+    # Test with different rotation angles
+    f1 = landscape_2d.show(show=False, azim=0)
+    mpl_fig_to_report(f1, extras)
+    
+    f2 = landscape_2d.show(show=False, azim=90)
+    mpl_fig_to_report(f2, extras)
+    
+    f3 = landscape_2d.show(show=False, azim=180)
+    mpl_fig_to_report(f3, extras)
+
+
 def test_persistence_barcode(landscape_2d, extras):
     f = landscape_2d.show_persistence_barcode(show=False)
     mpl_fig_to_report(f, extras)

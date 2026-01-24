@@ -24,7 +24,7 @@ import topopy as tp
 
 from .compute import compute_loss_landscape
 from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree, saddle_minima_pairs
+from .tda import PContourTree, get_persistence_dict, merge_tree, saddle_minima_pairs, topological_index
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -164,6 +164,17 @@ class LossLandscape:
 
         See :obj:`landscaper.plots.surface_3d` for keyword arguments.
 
+        Common keyword arguments include:
+            azim (float): Azimuthal viewing angle (rotation around z-axis) in degrees. Default is 45.
+            show (bool): If True, displays the plot; otherwise returns the figure.
+            figsize (tuple[int, int]): Size of the figure.
+            vmin (float | None): Minimum value for the color scale.
+            vmax (float | None): Maximum value for the color scale.
+
+        Example:
+            >>> landscape.show(azim=90)  # Rotate the plot 90 degrees around the z-axis
+            >>> landscape.show(azim=0, show=False)  # Get figure without showing it
+
         Raises:
             ValueError: Thrown if the landscape has too many dimensions.
         """
@@ -241,8 +252,7 @@ class LossLandscape:
         return x
 
     def persistence_range(self) -> float:
-        """
-        Calculates the difference in persistence between the root
+        """Calculates the difference in persistence between the root
         of the merge tree and the global minimum.
         """
         msc = self.get_ms_complex()

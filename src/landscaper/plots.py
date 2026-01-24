@@ -21,6 +21,7 @@ from typing import TypedDict
 
 import drawsvg as dw
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
 import topopy as tp
@@ -31,7 +32,6 @@ from matplotlib.patches import Patch
 from scipy.interpolate import interp1d
 
 from .tda import get_persistence_dict, tree_layout
-import networkx as nx
 from .utils import Number
 
 
@@ -347,6 +347,7 @@ def surface_3d(
     figsize: tuple[int, int] = (12, 8),
     vmin: float | None = None,
     vmax: float | None = None,
+    azim: float = 45,
 ) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
@@ -357,6 +358,12 @@ def surface_3d(
         figsize (tuple[int,int]): Size of the figure.
         vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
         vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
+        azim (float): Azimuthal viewing angle (rotation around z-axis) in degrees. Default is 45.
+            This parameter controls the horizontal rotation of the 3D plot, allowing you to find
+            the optimal viewing angle for your landscape.
+
+    Example:
+        >>> landscape.show(azim=90)  # Rotate the plot 90 degrees around the z-axis
     """
     # Create 3D surface plot
     fig = plt.figure(figsize=figsize)
@@ -421,7 +428,7 @@ def surface_3d(
     ax.set_title("3D Loss Landscape")
 
     # Adjust the viewing angle for better visualization
-    ax.view_init(elev=30, azim=45)
+    ax.view_init(elev=30, azim=azim)
 
     if not show:
         return fig
