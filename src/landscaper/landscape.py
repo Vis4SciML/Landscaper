@@ -119,6 +119,13 @@ class LossLandscape:
         return self.super_tree
 
     def get_contour_tree(self, **kwargs) -> PContourTree:
+        """Returns the contour tree corresponding to the Landscape.
+
+            **kwargs: Kwargs get forwarded to PContourTree.
+
+        Returns:
+            Contour tree representation of the landscape.
+        """
         if self.contour_tree is None:
             ct = PContourTree(graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0), **kwargs)
             ct.build(np.array(self.coords), self.loss.flatten())
@@ -247,23 +254,23 @@ class LossLandscape:
         Returns:
             (float) A descriptor of the smoothness of the landscape.
         """
-        ct = self.get_contour_tree()
-        ti = self.get_topological_indices(ct)
+        mt = self.get_sublevel_tree()
+        ti = self.get_topological_indices(mt)
         msc = self.get_ms_complex()
 
-        if len(ct.branches) == 0:
+        if len(mt.branches) == 0:
             return 0.0
 
         tot = len(self.loss.flatten())
         # branch persistence
         um = msc.get_unstable_manifolds()
-        sp = saddle_minima_pairs(ct, ti)
+        sp = saddle_minima_pairs(mt, ti)
         bp = np.empty(len(sp))
         vol = np.empty(len(sp))
 
         for i, (n1, n2) in enumerate(sp):
             minima = n1 if (ti[n1] == 0) else n2
-            gap = abs(ct.nodes[n1] - ct.nodes[n2])
+            gap = abs(mt.nodes[n1] - mt.nodes[n2])
             if normalize:
                 gap = gap / self.loss_range
             vol[i] = len(um[minima]) / tot
