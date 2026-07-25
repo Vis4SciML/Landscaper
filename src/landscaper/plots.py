@@ -214,6 +214,8 @@ def contour(
     loss: npt.ArrayLike,
     show: bool = True,
     figsize: tuple[int, int] = (12, 8),
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None | Figure:
     """Draws a contour plot from the provided coordinates and values.
 
@@ -222,6 +224,8 @@ def contour(
         loss (npt.ArrayLike): Value for each coordinate.
         figsize (tuple[int, int]): Size of the figure.
         show (bool): If true, shows the plot; otherwise returns the figure.
+        vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
+        vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
 
     Raises:
         ValueError: Raised if rendering fails.
@@ -232,17 +236,42 @@ def contour(
 
     # Ensure all values are positive for log scale
     min_loss = np.min(loss)
+    shift = 0
     if min_loss <= 0:
         shift = -min_loss + 1e-6
         loss = loss + shift
         print(f"Shifted loss surface by {shift} to ensure positive values")
 
     # Create logarithmically spaced levels
-    min_val = np.min(loss[loss > 0])
-    max_val = np.max(loss)
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    # If data was shifted, apply the same shift to user-provided values
+    if vmin is not None:
+        min_val = vmin + shift
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
+            min_val = adjusted_min
+    else:
+        positive_loss = loss[loss > 0]
+        if len(positive_loss) > 0:
+            min_val = np.min(positive_loss)
+        else:
+            min_val = np.min(loss) if np.min(loss) > 0 else 1e-6
+    
+    if vmax is not None:
+        max_val = vmax + shift
+        # Ensure max_val is positive for log scale
+        if max_val <= 0:
+            raise ValueError(f"vmax ({vmax}) results in non-positive value ({max_val}) after data shifting for log scale")
+    else:
+        max_val = np.max(loss)
 
     if min_val >= max_val:
-        raise ValueError("Invalid level range")
+        # Show original user values in error message if available
+        vmin_display = vmin if vmin is not None else min_val - shift
+        vmax_display = vmax if vmax is not None else max_val - shift
+        raise ValueError(f"Invalid level range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
 
     try:
         levels = np.logspace(np.log10(min_val), np.log10(max_val), 30)
@@ -270,8 +299,8 @@ def contour(
     except Exception as e:
         print(f"Warning: Log-scale contour plot failed ({e}). Using linear scale...")
         try:
-            # Try linear scale with fewer levels
-            levels = np.linspace(np.min(loss), np.max(loss), 20)
+            # Try linear scale with fewer levels, respecting user-provided vmin/vmax
+            levels = np.linspace(min_val, max_val, 20)
             contour_filled = ax1.contourf(X, Y, loss, levels=levels, cmap="RdYlBu_r")
             contour_lines = ax1.contour(
                 X,
@@ -285,7 +314,7 @@ def contour(
             ax1.clabel(contour_lines, inline=True, fontsize=8, fmt="%.3f")
         except Exception as e:
             print(f"Warning: Linear scale plotting failed ({e}). Using pcolormesh...")
-            contour_filled = ax1.pcolormesh(X, Y, loss, cmap="RdYlBu_r", shading="auto")
+            contour_filled = ax1.pcolormesh(X, Y, loss, cmap="RdYlBu_r", shading="auto", vmin=min_val, vmax=max_val)
 
     try:
         plt.colorbar(contour_filled, ax=ax1, label="Loss")
@@ -308,6 +337,8 @@ def surface_3d(
     loss: npt.ArrayLike,
     show: bool = True,
     figsize: tuple[int, int] = (12, 8),
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None | Figure:
     """Generates a 3d surface plot for the given coordinates and values. Fails if dimensions are greater than 2.
 
@@ -316,14 +347,44 @@ def surface_3d(
         loss (npt.ArrayLike): Values for the coordinates.
         show (bool): Shows the plot if true, otherwise returns the figure.
         figsize (tuple[int,int]): Size of the figure.
+        vmin (float | None): Minimum value for the color scale. If None, uses the minimum loss value.
+        vmax (float | None): Maximum value for the color scale. If None, uses the maximum loss value.
     """
     # Create 3D surface plot
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
     X, Y = np.meshgrid(coords[0], coords[1])
 
-    min_val = np.min(loss[loss > 0])
-    max_val = np.max(loss)
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    if vmin is not None:
+        min_val = vmin
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
+            min_val = adjusted_min
+    else:
+        positive_loss = loss[loss > 0]
+        if len(positive_loss) > 0:
+            min_val = np.min(positive_loss)
+        else:
+            min_val = np.min(loss)
+            if min_val <= 0:
+                min_val = 1e-6
+    
+    if vmax is not None:
+        max_val = vmax
+        # Ensure max_val is positive for log scale
+        if max_val <= 0:
+            raise ValueError(f"vmax ({vmax}) must be positive for log scale")
+    else:
+        max_val = np.max(loss)
+    
+    # Validate that vmax > vmin
+    if min_val >= max_val:
+        vmin_display = vmin if vmin is not None else min_val
+        vmax_display = vmax if vmax is not None else max_val
+        raise ValueError(f"Invalid range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
 
     try:
         # Try log-scale surface plot
@@ -341,7 +402,9 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True)
+        surf = ax.plot_surface(
+            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val
+        )
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")
