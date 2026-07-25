@@ -82,15 +82,34 @@ def torch_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def rosenbrock_generator(a, b):
+    def fn(*x):
+        x = np.asarray(x)
+        return np.sum((a - x[:-1]) ** 2 + b * (x[1:] - x[:-1] ** 2) ** 2, axis=0)
+
+    return fn
+
+
 @pytest.fixture
-def landscape_2d():
-    # reset random seed
-    rng = np.random.default_rng(123456)
+def rosenbrock_2d():
+    a = 1
+    b = 100
+    fn = rosenbrock_generator(a, b)
+    ranges = [np.linspace(-1, 1, 5) for x in range(2)]
+    X, Y = np.meshgrid(*ranges)
+    Z = fn(X, Y)
+    return LossLandscape(Z, ranges)
 
-    ranges = [np.linspace(-1, 1, 10) for x in range(2)]
-    loss = rng.random([10] * 2)
 
-    return LossLandscape(loss, ranges)
+@pytest.fixture
+def rosenbrock_5d():
+    a = 1
+    b = 100
+    fn = rosenbrock_generator(a, b)
+    ranges = [np.linspace(-1, 1, 5) for x in range(5)]
+    vals = np.meshgrid(*ranges)
+    Z = fn(*vals)
+    return LossLandscape(Z, ranges)
 
 
 @pytest.fixture(scope="session")

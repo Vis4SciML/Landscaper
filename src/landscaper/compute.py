@@ -26,9 +26,7 @@ from .utils import DeviceStr
 
 
 # Helper functions for loss landscape computation
-def get_model_parameters(
-    model: torch.nn.Module, as_complex: bool
-) -> list[torch.Tensor]:
+def get_model_parameters(model: torch.nn.Module, as_complex: bool) -> list[torch.Tensor]:
     """Get model parameters as a list of tensors.
 
     Args:
@@ -41,16 +39,11 @@ def get_model_parameters(
     params = [p.data for p in model.parameters()]
 
     if as_complex:
-        params = [
-            torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p
-            for p in params
-        ]
+        params = [torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p for p in params]
     return params
 
 
-def clone_parameters(
-    parameters: list[torch.Tensor], as_complex: bool
-) -> list[torch.Tensor]:
+def clone_parameters(parameters: list[torch.Tensor], as_complex: bool) -> list[torch.Tensor]:
     """Clone model parameters to avoid modifying the original tensors.
 
     Args:
@@ -63,16 +56,11 @@ def clone_parameters(
     params = [p.clone() for p in parameters]
 
     if as_complex:
-        params = [
-            torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p
-            for p in params
-        ]
+        params = [torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p for p in params]
     return params
 
 
-def add_direction(
-    parameters: list[torch.Tensor], direction: list[torch.Tensor]
-) -> None:
+def add_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
     """Add a direction to parameters in-place.
 
     Args:
@@ -83,9 +71,7 @@ def add_direction(
         p.add_(d)
 
 
-def sub_direction(
-    parameters: list[torch.Tensor], direction: list[torch.Tensor]
-) -> None:
+def sub_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor]) -> None:
     """Subtract a direction from parameters in-place.
 
     Args:
@@ -135,9 +121,7 @@ def get_model_norm(parameters: list[torch.Tensor]) -> float:
     return torch.sqrt(sum((p**2).sum() for p in parameters))
 
 
-def normalize_direction(
-    direction: list[torch.Tensor], parameters: list[torch.Tensor]
-) -> list[torch.Tensor]:
+def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Tensor]) -> list[torch.Tensor]:
     """Normalize a direction based on the number of parameters.
 
     Args:
@@ -148,10 +132,7 @@ def normalize_direction(
         list[torch.Tensor]: Normalized direction tensors.
     """
     for d, p in zip(direction, parameters, strict=False):
-        d.mul_(
-            torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device))
-            / (d.norm() + 1e-10)
-        )
+        d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
     return direction
 
 
@@ -193,12 +174,8 @@ def compute_loss_landscape(
 
     # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
     if dim > 5:
-        print(
-            f"Warning: {dim} dimensions may require significant memory and computation time."
-        )
-        print(
-            f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension."
-        )
+        print(f"Warning: {dim} dimensions may require significant memory and computation time.")
+        print(f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension.")
 
     with torch.no_grad():
         # Get starting parameters and save original weights
@@ -208,9 +185,7 @@ def compute_loss_landscape(
         # Get top-N eigenvectors as directions
         directions = copy.deepcopy(dirs)
         if dim > len(directions):
-            raise ValueError(
-                f"Requested dimension {dim} exceeds available directions ({len(directions)})."
-            )
+            raise ValueError(f"Requested dimension {dim} exceeds available directions ({len(directions)}).")
 
         # Normalize all directions
         for i in range(dim):
@@ -220,9 +195,7 @@ def compute_loss_landscape(
         model_norm = get_model_norm(start_point)
         for i in range(dim):
             dir_norm = get_model_norm(directions[i])
-            scale_direction(
-                directions[i], ((model_norm * distance) / (steps / 2)) / dir_norm
-            )
+            scale_direction(directions[i], ((model_norm * distance) / (steps / 2)) / dir_norm)
 
         # Generate grid coordinates
         grid_points = list(product(range(steps), repeat=dim))
@@ -266,9 +239,7 @@ def compute_loss_landscape(
             neginf_replacement = np.min(finite_values)
         else:
             # Fallback if no finite values exist
-            raise ValueError(
-                "Warning: No finite values found in the loss hypercube. Setting replacements to defaults."
-            )
+            raise ValueError("Warning: No finite values found in the loss hypercube. Setting replacements to defaults.")
 
         loss_hypercube = np.nan_to_num(
             loss_hypercube,
@@ -280,12 +251,8 @@ def compute_loss_landscape(
         # Add small noise to max values to avoid flat regions
         max_mask = loss_hypercube == np.max(loss_hypercube)
         if np.any(max_mask):
-            noise_scale = (
-                np.std(loss_hypercube[~max_mask]) * 0.01 if np.any(~max_mask) else 0.01
-            )
-            loss_hypercube[max_mask] += np.random.normal(
-                0, noise_scale, np.sum(max_mask)
-            )
+            noise_scale = np.std(loss_hypercube[~max_mask]) * 0.01 if np.any(~max_mask) else 0.01
+            loss_hypercube[max_mask] += np.random.normal(0, noise_scale, np.sum(max_mask))
 
         # Print statistics about the loss hypercube
         print(

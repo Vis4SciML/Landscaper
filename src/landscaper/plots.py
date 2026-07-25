@@ -258,12 +258,14 @@ def contour(
             min_val = np.min(positive_loss)
         else:
             min_val = np.min(loss) if np.min(loss) > 0 else 1e-6
-    
+
     if vmax is not None:
         max_val = vmax + shift
         # Ensure max_val is positive for log scale
         if max_val <= 0:
-            raise ValueError(f"vmax ({vmax}) results in non-positive value ({max_val}) after data shifting for log scale")
+            raise ValueError(
+                f"vmax ({vmax}) results in non-positive value ({max_val}) after data shifting for log scale"
+            )
     else:
         max_val = np.max(loss)
 
@@ -371,7 +373,7 @@ def surface_3d(
             min_val = np.min(loss)
             if min_val <= 0:
                 min_val = 1e-6
-    
+
     if vmax is not None:
         max_val = vmax
         # Ensure max_val is positive for log scale
@@ -379,7 +381,7 @@ def surface_3d(
             raise ValueError(f"vmax ({vmax}) must be positive for log scale")
     else:
         max_val = np.max(loss)
-    
+
     # Validate that vmax > vmin
     if min_val >= max_val:
         vmin_display = vmin if vmin is not None else min_val
@@ -402,9 +404,7 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(
-            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val
-        )
+        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val)
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")
@@ -594,7 +594,7 @@ def hessian_eigenvalues(top_eigenvalues: npt.ArrayLike, show: bool = True, figsi
     plt.show()
 
 
-def draw_tree(t: tp.MergeTree, log_scale: bool = False, node_size: int = 300, **kwargs):
+def draw_tree(t: tp.MergeTree, log_scale: bool = False, node_size: int = 300, show=True, **kwargs):
     """Draws a merge tree as a networkx directed graph.
 
     Args:
@@ -604,4 +604,8 @@ def draw_tree(t: tp.MergeTree, log_scale: bool = False, node_size: int = 300, **
         **kwargs: See `networkx.draw` for keyword arguments.
     """
     G, pos = tree_layout(t, log_scale=log_scale, node_size=node_size)
-    nx.draw(G, pos, node_size=node_size, **kwargs)
+    fig, ax = plt.subplots()
+    nx.draw(G, pos, node_size=node_size, ax=ax, **kwargs)
+    if not show:
+        return fig
+    plt.show()

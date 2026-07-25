@@ -21,9 +21,10 @@ import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
 import topopy as tp
+from typing import Literal
 
 from .compute import compute_loss_landscape
-from .plots import contour, persistence_barcode, surface_3d, topology_profile
+from .plots import contour, persistence_barcode, surface_3d, topology_profile, draw_tree
 from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree, saddle_minima_pairs
 from .topology_profile import generate_profile
 from .utils import load_landscape
@@ -187,6 +188,30 @@ class LossLandscape:
         mt = self.get_sublevel_tree()
         profile = generate_profile(mt)
         return topology_profile(profile, **kwargs)
+
+    def show_tree(self, tree_type: Literal["sublevel", "super"], **kwargs):
+        """Draws the selected type of merge tree for the landscape.
+        Can either be the sublevel (minima) or super (maxima) tree.
+
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        if tree_type == "sublevel":
+            mt = self.get_sublevel_tree()
+        else:
+            mt = self.get_super_tree()
+        return draw_tree(mt, **kwargs)
+
+    def show_sublevel_tree(self, **kwargs):
+        """Draws the sublevel merge tree of the landscape.
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        return self.show_tree("sublevel", **kwargs)
+
+    def show_super_tree(self, **kwargs):
+        """Draws the super merge tree of the landscape.
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        return self.show_tree("super", **kwargs)
 
     def show_contour(self, **kwargs):
         """Renders a contour plot of the landscape.

@@ -124,7 +124,7 @@ def tree_layout(
     t: tp.MergeTree, log_scale: bool = False, node_size: int = 300
 ) -> tuple[nx.DiGraph, dict[int, list[float]]]:
     """Lays out a mergetree according to the algorithm outlined in the paper
-    ["Sketching Merge Trees for Scientific Data Visualization"](https://arxiv.org/abs/2101.03196)
+    ["Sketching Merge Trees for Scientific Data Visualization"](https://arxiv.org/abs/2101.03196).
 
     Args:
         t: The merge tree to lay out.
