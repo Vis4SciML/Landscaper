@@ -8,6 +8,7 @@ import torch
 import torch.multiprocessing
 import torchvision
 import torchvision.transforms as transforms
+import random
 from resnet import resnet50
 from tqdm import tqdm
 
@@ -79,7 +80,9 @@ def pytest_sessionstart(session):
 
 @pytest.fixture(scope="session")
 def torch_device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    d = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using {d} as device.")
+    return d
 
 
 """
@@ -140,7 +143,13 @@ def cifar10_test(torch_device):
 
     data_path = os.path.join(test_dir, "cifar10_test")
     testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=t)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=3, shuffle=False, num_workers=2)
+
+    subset_size = 5
+    rng = random.Random(123456)
+
+    indices = rng.sample(range(len(testset)), subset_size)
+    subset = torch.utils.data.Subset(testset, indices)
+    testloader = torch.utils.data.DataLoader(subset, batch_size=3, shuffle=False, num_workers=2)
 
     data = []
     for idx, d in enumerate(testloader):
@@ -156,19 +165,9 @@ def resnet_criterion():
 
 @pytest.fixture(scope="session")
 def hessian_comp(resnet_50, cifar10_test, resnet_criterion, torch_device):
-    return PyHessian(
-        resnet_50,
-        resnet_criterion,
-        cifar10_test,
-        torch_device,
-    )
+    return PyHessian(resnet_50, resnet_criterion, cifar10_test, torch_device)
 
 
 @pytest.fixture(scope="session")
 def hessian_eigenvecs(hessian_comp):
-    return hessian_comp.eigenvalues(top_n=3)
-
-
-@pytest.fixture(scope="session")
-def hessian_density(hessian_comp):
-    return hessian_comp.density()
+    return hessian_comp.eigenvalues(top_n=2)

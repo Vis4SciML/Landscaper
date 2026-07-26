@@ -42,8 +42,8 @@ def test_super_tree(rosenbrock_2d, extras):
 
 
 @pytest.mark.slow
-def test_hessian_density_plt(hessian_density, extras):
-    eigen, weight = hessian_density
+def test_hessian_density_plt(hessian_comp, extras):
+    eigen, weight = hessian_comp.density()
     f = lsplt.hessian_density(eigen, weight, show=False)
     mpl_fig_to_report(f, extras)
 

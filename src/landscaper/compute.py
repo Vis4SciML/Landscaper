@@ -36,7 +36,8 @@ def get_model_parameters(model: torch.nn.Module, as_complex: bool) -> list[torch
     Returns:
         list[torch.Tensor]: List of model parameters.
     """
-    params = [p.data for p in model.parameters()]
+    params = [p.data for p in model.parameters()]  # needs to be kept as a list instead of a flattened tensor
+    # this ensures that we can have per-layer norms
 
     if as_complex:
         params = [torch.complex(p, torch.zeros_like(p)) if not torch.is_complex(p) else p for p in params]
@@ -82,7 +83,7 @@ def sub_direction(parameters: list[torch.Tensor], direction: list[torch.Tensor])
         p.sub_(d)
 
 
-def scale_direction(direction: list[torch.Tensor], scale: float) -> list[torch.Tensor]:
+def scale_direction(direction: list[torch.Tensor], scale: float) -> None:
     """Scale a direction by a given factor.
 
     Args:
@@ -109,8 +110,8 @@ def set_parameters(model: torch.nn.Module, parameters: list[torch.Tensor]) -> No
         p.data.copy_(new_p)
 
 
-def get_model_norm(parameters: list[torch.Tensor]) -> float:
-    """Get L2 norm of parameters.
+def norm_tensor_list(t_list: list[torch.Tensor]) -> float:
+    """Get L2 norm of a list of tensors.
 
     Args:
         parameters (list[torch.Tensor]): List of model parameters.
@@ -118,11 +119,12 @@ def get_model_norm(parameters: list[torch.Tensor]) -> float:
     Returns:
         float: L2 norm of the model parameters.
     """
-    return torch.sqrt(sum((p**2).sum() for p in parameters))
+    return torch.sqrt(sum((t**2).sum() for t in t_list))
 
 
 def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Tensor]) -> list[torch.Tensor]:
-    """Normalize a direction based on the number of parameters.
+    """Normalize a direction based on the number of parameters. Performs per-layer normalization as in
+    Li et al. "Visualizing the Loss Landscape of Neural Nets" (2018).
 
     Args:
         direction (list[torch.Tensor]): List of direction tensors to normalize.
@@ -131,9 +133,7 @@ def normalize_direction(direction: list[torch.Tensor], parameters: list[torch.Te
     Returns:
         list[torch.Tensor]: Normalized direction tensors.
     """
-    for d, p in zip(direction, parameters, strict=False):
-        d.mul_(torch.sqrt(torch.tensor(p.numel(), dtype=torch.float32, device=d.device)) / (d.norm() + 1e-10))
-    return direction
+    return [d * (p.norm() / (d.norm() + 1e-10)) for d, p in zip(direction, parameters, strict=False)]
 
 
 def compute_loss_landscape(
@@ -174,7 +174,9 @@ def compute_loss_landscape(
 
     # Compute loss landscape - this is the core logic that needs to be efficient for N dimensions
     if dim > 5:
-        print(f"Warning: {dim} dimensions may require significant memory and computation time.")
+        print(
+            f"Warning: Calculating a landscape with {dim} dimensions may require significant memory and computation time."
+        )
         print(f"Consider reducing the 'steps' parameter (currently {steps}) or using a lower dimension.")
 
     with torch.no_grad():
@@ -192,9 +194,9 @@ def compute_loss_landscape(
             directions[i] = normalize_direction(directions[i], start_point)
 
         # Scale directions to match steps and total distance
-        model_norm = get_model_norm(start_point)
+        model_norm = norm_tensor_list(start_point)
         for i in range(dim):
-            dir_norm = get_model_norm(directions[i])
+            dir_norm = norm_tensor_list(directions[i])
             scale_direction(directions[i], ((model_norm * distance) / (steps / 2)) / dir_norm)
 
         # Generate grid coordinates
