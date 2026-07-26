@@ -82,7 +82,19 @@ def torch_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def rosenbrock_generator(a, b):
+"""
+@pytest.fixture(scope="session")
+def single_basin_landscape():
+    ranges = [np.linspace(-1, 1, 11) for x in range(2)]
+    X, Y = np.meshgrid(*ranges)
+    Z = np.ones_like(X)
+    Z[(X == 0) & (Y == 0)] = 0.0
+    Z[(X == -1) & (Y == -1)] = 2.0
+    return LossLandscape(Z, ranges)
+"""
+
+
+def _rosenbrock_generator(a, b):
     def fn(*x):
         x = np.asarray(x)
         return np.sum((a - x[:-1]) ** 2 + b * (x[1:] - x[:-1] ** 2) ** 2, axis=0)
@@ -90,22 +102,22 @@ def rosenbrock_generator(a, b):
     return fn
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def rosenbrock_2d():
     a = 1
     b = 100
-    fn = rosenbrock_generator(a, b)
-    ranges = [np.linspace(-1, 1, 5) for x in range(2)]
+    fn = _rosenbrock_generator(a, b)
+    ranges = [np.linspace(-1, 1, 10) for x in range(2)]
     X, Y = np.meshgrid(*ranges)
     Z = fn(X, Y)
     return LossLandscape(Z, ranges)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def rosenbrock_5d():
     a = 1
     b = 100
-    fn = rosenbrock_generator(a, b)
+    fn = _rosenbrock_generator(a, b)
     ranges = [np.linspace(-1, 1, 5) for x in range(5)]
     vals = np.meshgrid(*ranges)
     Z = fn(*vals)
