@@ -35,10 +35,48 @@ import networkx as nx
 from .utils import Number
 
 
+def _shift_positive(vmin, vmax, loss):
+    min_loss = np.min(loss)
+    shift = 0
+    if min_loss <= 0:
+        shift = -min_loss + 1e-6
+        shifted_loss = loss + shift
+        print(f"Shifted loss surface by {shift} to ensure positive values.")
+    else:
+        shifted_loss = loss
+    # Create logarithmically spaced levels
+    # Use user-provided vmin/vmax if specified, otherwise calculate from data
+    # If data was shifted, apply the same shift to user-provided values
+    if vmin is not None:
+        min_val = vmin + shift
+        # Ensure min_val is positive for log scale
+        if min_val <= 0:
+            adjusted_min = 1e-6
+            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value.")
+            min_val = adjusted_min
+    else:
+        min_val = np.min(shifted_loss)
+
+    if vmax is not None:
+        max_val = vmax + shift
+        # Ensure max_val is positive for log scale
+        if max_val <= 0:
+            raise ValueError(f"vmax ({vmax}) results in non-positive value ({max_val}) after shifting.")
+    else:
+        max_val = np.max(shifted_loss)
+
+    if min_val >= max_val:
+        # Show original user values in error message if available
+        vmin_display = vmin if vmin is not None else min_val - shift
+        vmax_display = vmax if vmax is not None else max_val - shift
+        raise ValueError(f"Invalid level range: vmax ({vmax_display}) must be greater than vmin ({vmin_display}).")
+    return min_val, max_val, shifted_loss
+
+
 def persistence_barcode(
     msc: tp.MorseSmaleComplex, show: bool = True, figsize: tuple[int, int] = (12, 6)
 ) -> None | Figure:
-    """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode)  for a Morse-Smale complex.
+    """Plots the [persistence barcode](https://en.wikipedia.org/wiki/Persistence_barcode) for a Morse-Smale complex.
 
     Args:
         msc (tp.MorseSmaleComplex): A Morse-Smale complex.
@@ -235,53 +273,14 @@ def contour(
     X, Y = np.meshgrid(coordinates[0], coordinates[1])
 
     # Ensure all values are positive for log scale
-    min_loss = np.min(loss)
-    shift = 0
-    if min_loss <= 0:
-        shift = -min_loss + 1e-6
-        loss = loss + shift
-        print(f"Shifted loss surface by {shift} to ensure positive values")
-
-    # Create logarithmically spaced levels
-    # Use user-provided vmin/vmax if specified, otherwise calculate from data
-    # If data was shifted, apply the same shift to user-provided values
-    if vmin is not None:
-        min_val = vmin + shift
-        # Ensure min_val is positive for log scale
-        if min_val <= 0:
-            adjusted_min = 1e-6
-            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
-            min_val = adjusted_min
-    else:
-        positive_loss = loss[loss > 0]
-        if len(positive_loss) > 0:
-            min_val = np.min(positive_loss)
-        else:
-            min_val = np.min(loss) if np.min(loss) > 0 else 1e-6
-
-    if vmax is not None:
-        max_val = vmax + shift
-        # Ensure max_val is positive for log scale
-        if max_val <= 0:
-            raise ValueError(
-                f"vmax ({vmax}) results in non-positive value ({max_val}) after data shifting for log scale"
-            )
-    else:
-        max_val = np.max(loss)
-
-    if min_val >= max_val:
-        # Show original user values in error message if available
-        vmin_display = vmin if vmin is not None else min_val - shift
-        vmax_display = vmax if vmax is not None else max_val - shift
-        raise ValueError(f"Invalid level range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
-
+    min_val, max_val, shifted_loss = _shift_positive(vmin, vmax, loss)
     try:
         levels = np.logspace(np.log10(min_val), np.log10(max_val), 30)
         # Create contour plot with log scale
         contour_filled = ax1.contourf(
             X,
             Y,
-            loss,
+            shifted_loss,
             levels=levels,
             norm=LogNorm(vmin=min_val, vmax=max_val),
             cmap="RdYlBu_r",
@@ -290,7 +289,7 @@ def contour(
         contour_lines = ax1.contour(
             X,
             Y,
-            loss,
+            shifted_loss,
             levels=levels[::3],
             colors="black",
             linewidths=0.5,
@@ -302,7 +301,7 @@ def contour(
         print(f"Warning: Log-scale contour plot failed ({e}). Using linear scale...")
         try:
             # Try linear scale with fewer levels, respecting user-provided vmin/vmax
-            levels = np.linspace(min_val, max_val, 20)
+            levels = np.linspace(np.min(loss), np.max(loss), 20)
             contour_filled = ax1.contourf(X, Y, loss, levels=levels, cmap="RdYlBu_r")
             contour_lines = ax1.contour(
                 X,
@@ -316,7 +315,9 @@ def contour(
             ax1.clabel(contour_lines, inline=True, fontsize=8, fmt="%.3f")
         except Exception as e:
             print(f"Warning: Linear scale plotting failed ({e}). Using pcolormesh...")
-            contour_filled = ax1.pcolormesh(X, Y, loss, cmap="RdYlBu_r", shading="auto", vmin=min_val, vmax=max_val)
+            contour_filled = ax1.pcolormesh(
+                X, Y, loss, cmap="RdYlBu_r", shading="auto", vmin=np.min(loss), vmax=np.max(loss)
+            )
 
     try:
         plt.colorbar(contour_filled, ax=ax1, label="Loss")
@@ -357,36 +358,7 @@ def surface_3d(
     ax = fig.add_subplot(111, projection="3d")
     X, Y = np.meshgrid(coords[0], coords[1])
 
-    # Use user-provided vmin/vmax if specified, otherwise calculate from data
-    if vmin is not None:
-        min_val = vmin
-        # Ensure min_val is positive for log scale
-        if min_val <= 0:
-            adjusted_min = 1e-6
-            print(f"Warning: vmin ({vmin}) adjusted to {adjusted_min} to ensure positive value for log scale")
-            min_val = adjusted_min
-    else:
-        positive_loss = loss[loss > 0]
-        if len(positive_loss) > 0:
-            min_val = np.min(positive_loss)
-        else:
-            min_val = np.min(loss)
-            if min_val <= 0:
-                min_val = 1e-6
-
-    if vmax is not None:
-        max_val = vmax
-        # Ensure max_val is positive for log scale
-        if max_val <= 0:
-            raise ValueError(f"vmax ({vmax}) must be positive for log scale")
-    else:
-        max_val = np.max(loss)
-
-    # Validate that vmax > vmin
-    if min_val >= max_val:
-        vmin_display = vmin if vmin is not None else min_val
-        vmax_display = vmax if vmax is not None else max_val
-        raise ValueError(f"Invalid range: vmax ({vmax_display}) must be greater than vmin ({vmin_display})")
+    min_val, max_val, shifted_loss = _shift_positive(vmin, vmax, loss)
 
     try:
         # Try log-scale surface plot
@@ -395,7 +367,7 @@ def surface_3d(
         surf = ax.plot_surface(
             X,
             Y,
-            loss,
+            shifted_loss,
             cmap="RdYlBu_r",
             norm=norm,
             linewidth=0,
@@ -404,7 +376,9 @@ def surface_3d(
         plt.colorbar(surf, label="Loss (log scale)")
     except Exception as e:
         print(f"Warning: Log-scale 3D plotting failed ({e}). Using linear scale...")
-        surf = ax.plot_surface(X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=min_val, vmax=max_val)
+        surf = ax.plot_surface(
+            X, Y, loss, cmap="RdYlBu_r", linewidth=0, antialiased=True, vmin=np.min(loss), vmax=np.max(loss)
+        )
         plt.colorbar(surf, label="Loss")
 
     ax.set_xlabel("Direction of First Eigenvector")
