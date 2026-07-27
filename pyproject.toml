@@ -46,6 +46,7 @@ examples = [
 
 [dependency-groups]
 dev = [
+    "coverage>=7.15.2",
     "jupyter>=1.1.1",
     "mypy>=1.16.0",
     "pytest>=8.3.5",

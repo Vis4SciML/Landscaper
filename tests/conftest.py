@@ -80,7 +80,8 @@ def pytest_sessionstart(session):
 
 @pytest.fixture(scope="session")
 def torch_device():
-    d = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # keep ooming so using CPU instead
+    d = torch.device("cpu")  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using {d} as device.")
     return d
 

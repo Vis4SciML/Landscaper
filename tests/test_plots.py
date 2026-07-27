@@ -1,6 +1,6 @@
 import pytest
+import torch
 from utils import mpl_fig_to_report
-
 import landscaper.plots as lsplt
 
 

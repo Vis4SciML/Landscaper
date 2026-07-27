@@ -7,8 +7,6 @@ from landscaper import LossLandscape
 
 @pytest.mark.slow
 def test_compute(resnet_50, cifar10_test, torch_device, hessian_eigenvecs, resnet_criterion, extras):
-    torch.cuda.empty_cache()
-
     def loss_function(model, data):
         batch_loss = 0
         for d in data:
