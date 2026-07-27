@@ -56,6 +56,10 @@ def merge_tree(
     loss: npt.ArrayLike,
     coords: npt.ArrayLike,
     direction: Literal[-1, 1] = 1,
+    beta: float = 1.0,
+    relaxed: bool = False,
+    p: float = 2.0,
+    **kwargs,
 ) -> tp.MergeTree:
     """Helper function used to generate a merge tree for a loss landscape.
 
@@ -65,12 +69,41 @@ def merge_tree(
         graph (ngl.nglGraph): nglpy graph of the space (usually filled out by topopy).
         direction (Literal[-1,1]): The direction to generate a merge tree for.
             -1 generates a merge tree for maxima, while the default value (1) is for minima.
+        beta: Used for building the region graph for the merge tree computation. From the nglpy docs:
+            A positive value working in conjunction with the p value to specify
+            the size and shape of the empty region required around a valid
+            edge. Roughly, beta is a size parameter and p is a shape parameter.
+            For p values less than one, beta is inversely proportional to
+            the size of the empty region, and for p values greater than one,
+            beta is directly proportional to the size of the empty region.
+            When p is one, the beta parameter is irrelevant.
 
+            For an interactive example of how these values interact, see:
+            http://www.cs.utah.edu/~maljovec/bpSkeleton.html
+        relaxed: Used for building the region graph for the merge tree computation. From the nglpy docs:
+            Determines whether the relaxed graph (as determined by Correa and
+            Lindstrom's algorithm) should be computed. A relaxed edge
+            satisifies the empty region criteria from the perspective of one
+            endpoint, whereas a strict edge satisfies this criteria from the
+            perspective of both endpoints.
+        p: Used for building the region graph for the merge tree computation. From the nglpy docs:
+            A positive value working in conjunction with the beta value to
+            specify the shape and size of the empty region required around a
+            valid edge. Thsi value specifies the Lp-norm to use for generating
+            the empty regions. Roughly, beta is a size parameter and p is a
+            shape parameter. For p values less than one, beta is inversely
+            proportional to the size of the empty region, and for p values
+            greater than one, beta is directly proportional to the size of the
+            empty region. When p is one, the beta parameter is irrelevant.
+
+            For an interactive example of how these values interact, see:
+            http://www.cs.utah.edu/~maljovec/bpSkeleton.html
+        The rest of the kwargs are passed to nglpy's EmptyRegionGraph. Look [here](https://github.com/maljovec/nglpy/blob/main/nglpy/EmptyRegionGraph.py) for more details.
     Returns:
         Merge tree for the space.
     """
     loss_flat = loss.flatten()
-    t = tp.MergeTree(graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0))
+    t = tp.MergeTree(graph=ngl.EmptyRegionGraph(beta=beta, relaxed=relaxed, p=p, **kwargs))
     t.build(np.array(coords), direction * loss_flat)
     return t
 
@@ -124,7 +157,7 @@ def tree_layout(
     t: tp.MergeTree, log_scale: bool = False, node_size: int = 300
 ) -> tuple[nx.DiGraph, dict[int, list[float]]]:
     """Lays out a mergetree according to the algorithm outlined in the paper
-    ["Sketching Merge Trees for Scientific Data Visualization"](https://arxiv.org/abs/2101.03196)
+    ["Sketching Merge Trees for Scientific Data Visualization"](https://arxiv.org/abs/2101.03196).
 
     Args:
         t: The merge tree to lay out.
@@ -228,96 +261,8 @@ def tree_to_nx(t: tp.MergeTree) -> nx.DiGraph:
     return g
 
 
-# patched contour tree class from topopy
-class PContourTree(ContourTree):
-    def _process_tree(self, thisTree, thatTree):
-        # Get all of the leaf nodes that are not branches in the other
-        # tree
-        if len(thisTree.nodes()) > 1:
-            leaves = set(
-                [
-                    v
-                    for v in thisTree.nodes()
-                    if thisTree.in_degree(v) == 0 and v in thatTree and thatTree.in_degree(v) < 2
-                ]
-            )
-        else:
-            leaves = set()
-
-        while len(leaves) > 0:
-            v = leaves.pop()
-
-            # if self.debug:
-            #     sys.stdout.write('\tProcessing {} -> {}\n'
-            #                      .format(v, thisTree.edges(v)[0][1]))
-
-            # Take the leaf and edge out of the input tree and place it
-            # on the CT
-            edges = list(thisTree.out_edges(v))
-
-            e1 = edges[0][0]
-            e2 = edges[0][1]
-            # This may be a bit beside the point, but if we want all of
-            # our edges pointing 'up,' we can verify that the edges we
-            # add have the lower vertex pointing to the upper vertex.
-            # This is useful only for nicely plotting with some graph
-            # tools (graphviz/networkx), and I guess for consistency
-            # sake.
-            if self.Y[e1] < self.Y[e2]:
-                self.edges.append((e1, e2))
-            else:
-                self.edges.append((e2, e1))
-
-            # Removing the node will remove its constituent edges from
-            # thisTree
-            thisTree.remove_node(v)
-
-            # This is the root node of the other tree
-            if thatTree.out_degree(v) == 0:
-                thatTree.remove_node(v)
-
-            # This is a "regular" node in the other tree, suppress it
-            # there, but be sure to glue the upper and lower portions
-            # together
-            else:
-                # The other ends of the node being removed are added to
-                # "that" tree
-
-                if len(thatTree.in_edges(v)) > 0:
-                    startNode = list(thatTree.in_edges(v))[0][0]
-                else:
-                    # This means we are at the root of the other tree,
-                    # we can safely remove this node without connecting
-                    # its predecessor with its descendant
-                    startNode = None
-
-                if len(thatTree.out_edges(v)) > 0:
-                    endNode = list(thatTree.out_edges(v))[0][1]
-                else:
-                    # This means we are at a leaf of the other tree,
-                    # we can safely remove this node without connecting
-                    # its predecessor with its descendant
-                    endNode = None
-
-                if startNode is not None and endNode is not None:
-                    thatTree.add_edge(startNode, endNode)
-
-                thatTree.remove_node(v)
-
-            if len(thisTree.nodes()) > 1:
-                leaves = set(
-                    [
-                        v
-                        for v in thisTree.nodes()
-                        if thisTree.in_degree(v) == 0 and v in thatTree and thatTree.in_degree(v) < 2
-                    ]
-                )
-            else:
-                leaves = set()
-
-
-def saddle_minima_pairs(ct: PContourTree | ContourTree | tp.MergeTree, ti: dict[int, int]) -> list[tuple[int, int]]:
-    """Iterates through the edges in the contour tree and returns all edges that are saddle-minima pairs.
+def saddle_minima_pairs(ct: ContourTree | tp.MergeTree, ti: dict[int, int]) -> list[tuple[int, int]]:
+    """Iterates through the edges in a topological tree and returns all edges that are saddle-minima pairs.
 
     Args:
         ct: The contour tree to get saddle minima pairs for.

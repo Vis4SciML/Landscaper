@@ -21,10 +21,11 @@ import nglpy as ngl
 import numpy as np
 import numpy.typing as npt
 import topopy as tp
+from typing import Literal, Callable, Any
 
 from .compute import compute_loss_landscape
-from .plots import contour, persistence_barcode, surface_3d, topology_profile
-from .tda import get_persistence_dict, merge_tree, topological_index, PContourTree, saddle_minima_pairs
+from .plots import contour, persistence_barcode, surface_3d, topology_profile, draw_tree
+from .tda import get_persistence_dict, merge_tree, topological_index, saddle_minima_pairs
 from .topology_profile import generate_profile
 from .utils import load_landscape
 
@@ -98,36 +99,72 @@ class LossLandscape:
         """
         np.savez(filename, loss=self.loss, coordinates=self.ranges)
 
-    def get_sublevel_tree(self) -> tp.MergeTree:
+    def get_sublevel_tree(self, **kwargs) -> tp.MergeTree:
         """Gets the merge tree corresponding to the minima of the loss landscape.
+
+        Args:
+            **kwargs: Get passed to :obj:`landscaper.tda.merge_tree`.
 
         Returns:
             A tp.MergeTree object corresponding to the minima of the loss landscape.
         """
         if self.sub_tree is None:
-            self.sub_tree = merge_tree(self.loss, self.coords)
+            self.sub_tree = merge_tree(self.loss, self.coords, direction=1, **kwargs)
         return self.sub_tree
 
-    def get_super_tree(self) -> tp.MergeTree:
+    def get_super_tree(self, **kwargs) -> tp.MergeTree:
         """Gets the merge tree corresponding to the maxima of the loss landscape.
+
+        Args:
+            **kwargs: Get passed to :obj:`landscaper.tda.merge_tree`.
 
         Returns:
             A tp.MergeTree object corresponding to the maxima of the loss landscape.
         """
         if self.super_tree is None:
-            self.super_tree = merge_tree(self.loss, self.coords, direction=-1)
+            self.super_tree = merge_tree(self.loss, self.coords, direction=-1, **kwargs)
         return self.super_tree
 
-    def get_contour_tree(self, **kwargs) -> PContourTree:
+    def get_contour_tree(self, beta=1.0, relaxed=False, p=2.0, **kwargs) -> tp.ContourTree:
         """Returns the contour tree corresponding to the Landscape.
 
-            **kwargs: Kwargs get forwarded to PContourTree.
+        Args:
+            beta: Used for building the region graph for the merge tree computation. From the nglpy docs:
+                A positive value working in conjunction with the p value to specify
+                the size and shape of the empty region required around a valid
+                edge. Roughly, beta is a size parameter and p is a shape parameter.
+                For p values less than one, beta is inversely proportional to
+                the size of the empty region, and for p values greater than one,
+                beta is directly proportional to the size of the empty region.
+                When p is one, the beta parameter is irrelevant.
+
+                For an interactive example of how these values interact, see:
+                http://www.cs.utah.edu/~maljovec/bpSkeleton.html
+            relaxed: Used for building the region graph for the merge tree computation. From the nglpy docs:
+                Determines whether the relaxed graph (as determined by Correa and
+                Lindstrom's algorithm) should be computed. A relaxed edge
+                satisifies the empty region criteria from the perspective of one
+                endpoint, whereas a strict edge satisfies this criteria from the
+                perspective of both endpoints.
+            p: Used for building the region graph for the merge tree computation. From the nglpy docs:
+                A positive value working in conjunction with the beta value to
+                specify the shape and size of the empty region required around a
+                valid edge. Thsi value specifies the Lp-norm to use for generating
+                the empty regions. Roughly, beta is a size parameter and p is a
+                shape parameter. For p values less than one, beta is inversely
+                proportional to the size of the empty region, and for p values
+                greater than one, beta is directly proportional to the size of the
+                empty region. When p is one, the beta parameter is irrelevant.
+
+                For an interactive example of how these values interact, see:
+                http://www.cs.utah.edu/~maljovec/bpSkeleton.html
+            **kwargs: Passed to nglpy's EmptyRegionGraph. Look [here](https://github.com/maljovec/nglpy/blob/main/nglpy/EmptyRegionGraph.py) for more details.
 
         Returns:
             Contour tree representation of the landscape.
         """
         if self.contour_tree is None:
-            ct = PContourTree(graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0), **kwargs)
+            ct = tp.ContourTree(graph=ngl.EmptyRegionGraph(beta=beta, relaxed=relaxed, p=p, **kwargs))
             ct.build(np.array(self.coords), self.loss.flatten())
             ct.vals = [x for x in ct.sortedNodes if x[0] in ct.superNodes]
             ct.nodes = {n: dict(ct.vals)[n] for n in ct.superNodes}
@@ -135,16 +172,27 @@ class LossLandscape:
             self.contour_tree = ct
         return self.contour_tree
 
-    def get_ms_complex(self) -> tp.MorseSmaleComplex:
+    def get_ms_complex(
+        self,
+        beta: float = 1.0,
+        relaxed: bool = False,
+        p: float = 2.0,
+        simplification: Literal["difference", "probability", "count"] = "difference",
+        aggregator: str | Callable[..., Any] | None = None,
+        **kwargs,
+    ) -> tp.MorseSmaleComplex:
         """Gets the MorseSmaleComplex corresponding to the loss landscape.
+
 
         Returns:
             A tp.MorseSmaleComplex.
         """
         if self.ms_complex is None:
             ms_complex = tp.MorseSmaleComplex(
-                graph=ngl.EmptyRegionGraph(beta=1.0, relaxed=False, p=2.0),
-                gradient="steepest",
+                graph=ngl.EmptyRegionGraph(beta=beta, relaxed=relaxed, p=p, **kwargs),
+                gradient="steepest",  # only option available so we hardcode it
+                simplification=simplification,
+                aggregator=aggregator,
             )
             ms_complex.build(np.array(self.coords), self.loss.flatten())
             self.ms_complex = ms_complex
@@ -188,6 +236,32 @@ class LossLandscape:
         profile = generate_profile(mt)
         return topology_profile(profile, **kwargs)
 
+    def show_tree(self, tree_type: Literal["sublevel", "super"], **kwargs):
+        """Draws the selected type of merge tree for the landscape. Can either be the sublevel (minima)
+        or super (maxima) tree.
+
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        if tree_type == "sublevel":
+            mt = self.get_sublevel_tree()
+        else:
+            mt = self.get_super_tree()
+        return draw_tree(mt, **kwargs)
+
+    def show_sublevel_tree(self, **kwargs):
+        """Draws the sublevel merge tree of the landscape.
+
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        return self.show_tree("sublevel", **kwargs)
+
+    def show_super_tree(self, **kwargs):
+        """Draws the super merge tree of the landscape.
+
+        See :obj:`landscaper.plots.draw_tree` for more details.
+        """
+        return self.show_tree("super", **kwargs)
+
     def show_contour(self, **kwargs):
         """Renders a contour plot of the landscape.
 
@@ -205,8 +279,8 @@ class LossLandscape:
 
     def index_with_basins(self, values, ordered=True):
         """Meant to be used with basin_metric to derive per-basin values. Gets the unstable manifolds from
-        the landscape (i.e. points in a basin) and indexes into values
-        .
+        the landscape (i.e. points in a basin) and indexes into values.
+
         Args:
             values: Values to index into using the indices of points that belong to each basin.
             ordered: If true, basins are returned as a dictionary of minima index to a list of values; else its a 2D array
@@ -243,18 +317,19 @@ class LossLandscape:
 
         return final_op(bv)
 
-    def smad(self, normalize: bool = False, weighted: bool = False) -> float:
+    def smad(self, normalize: bool = False, weighted: bool = False, **kwargs) -> float:
         """Calculates the Saddle-Minimum Average Distance (SMAD) for the landscape.
         See our publication for more details.
 
         Args:
             normalize (boolean): If true, divides each saddle-minimum gap by the total range of the loss values.
             weighted (boolean): If true, weights each saddle-minimum gap by the volume of the basin created by the saddle-minimum pair.
+            **kwargs: Get passed to :obj:`landscaper.LossLandscape.get_sublevel_tree`.
 
         Returns:
             (float) A descriptor of the smoothness of the landscape.
         """
-        mt = self.get_sublevel_tree()
+        mt = self.get_sublevel_tree(**kwargs)
         ti = self.get_topological_indices(mt)
         msc = self.get_ms_complex()
 
@@ -288,10 +363,7 @@ class LossLandscape:
         return x
 
     def persistence_range(self) -> float:
-        """
-        Calculates the difference in persistence between the root
-        of the merge tree and the global minimum.
-        """
+        """Calculates the difference in persistence between the root of the merge tree and the global minimum."""
         msc = self.get_ms_complex()
         p = msc.persistences
         return abs(p[-1] - p[0])

@@ -1,7 +1,7 @@
 import pytest
 import pytest_html
 from utils import mpl_fig_to_report, svg_to_str
-
+import torch
 from landscaper import LossLandscape
 
 
@@ -19,14 +19,7 @@ def test_compute(resnet_50, cifar10_test, torch_device, hessian_eigenvecs, resne
     evals, evecs = hessian_eigenvecs
     print(evals)
 
-    ls = LossLandscape.compute(
-        resnet_50,
-        cifar10_test,
-        evecs,
-        loss_function,
-        dim=2,
-        device=torch_device,
-    )
+    ls = LossLandscape.compute(resnet_50, cifar10_test, evecs, loss_function, dim=2, device=torch_device)
 
     # draw some plots for visual inspection
     svg = ls.show_profile()

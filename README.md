@@ -65,7 +65,7 @@ If you use `Landscaper` in your research, please consider citing it. You can use
 ```
 
 ## Developers
-Install the dev dependencies with `uv sync`. When running `pytest`, pass `--html=report.html` to be able to visualize images created by the tests.
+Install the dev dependencies with `uv sync`. When running `pytest`, pass `--html=report.html` to be able to visualize images created by the tests. To get coverage results, run the tests with `uv run coverage run -m pytest --runslow`, followed by `uv run coverage report` or `uv run coverage html` to get results.
 
 ## Copyright
 
