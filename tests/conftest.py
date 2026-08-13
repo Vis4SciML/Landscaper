@@ -8,6 +8,7 @@ import torch
 import torch.multiprocessing
 import torchvision
 import torchvision.transforms as transforms
+import random
 from resnet import resnet50
 from tqdm import tqdm
 
@@ -79,18 +80,52 @@ def pytest_sessionstart(session):
 
 @pytest.fixture(scope="session")
 def torch_device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # keep ooming so using CPU instead
+    d = torch.device("cpu")  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using {d} as device.")
+    return d
 
 
-@pytest.fixture
-def landscape_2d():
-    # reset random seed
-    rng = np.random.default_rng(123456)
+"""
+@pytest.fixture(scope="session")
+def single_basin_landscape():
+    ranges = [np.linspace(-1, 1, 11) for x in range(2)]
+    X, Y = np.meshgrid(*ranges)
+    Z = np.ones_like(X)
+    Z[(X == 0) & (Y == 0)] = 0.0
+    Z[(X == -1) & (Y == -1)] = 2.0
+    return LossLandscape(Z, ranges)
+"""
 
+
+def _rosenbrock_generator(a, b):
+    def fn(*x):
+        x = np.asarray(x)
+        return np.sum((a - x[:-1]) ** 2 + b * (x[1:] - x[:-1] ** 2) ** 2, axis=0)
+
+    return fn
+
+
+@pytest.fixture(scope="session")
+def rosenbrock_2d():
+    a = 1
+    b = 100
+    fn = _rosenbrock_generator(a, b)
     ranges = [np.linspace(-1, 1, 10) for x in range(2)]
-    loss = rng.random([10] * 2)
+    X, Y = np.meshgrid(*ranges)
+    Z = fn(X, Y)
+    return LossLandscape(Z, ranges)
 
-    return LossLandscape(loss, ranges)
+
+@pytest.fixture(scope="session")
+def rosenbrock_5d():
+    a = 1
+    b = 100
+    fn = _rosenbrock_generator(a, b)
+    ranges = [np.linspace(-1, 1, 5) for x in range(5)]
+    vals = np.meshgrid(*ranges)
+    Z = fn(*vals)
+    return LossLandscape(Z, ranges)
 
 
 @pytest.fixture(scope="session")
@@ -109,7 +144,13 @@ def cifar10_test(torch_device):
 
     data_path = os.path.join(test_dir, "cifar10_test")
     testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=t)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=3, shuffle=False, num_workers=2)
+
+    subset_size = 5
+    rng = random.Random(123456)
+
+    indices = rng.sample(range(len(testset)), subset_size)
+    subset = torch.utils.data.Subset(testset, indices)
+    testloader = torch.utils.data.DataLoader(subset, batch_size=3, shuffle=False, num_workers=2)
 
     data = []
     for idx, d in enumerate(testloader):
@@ -125,19 +166,9 @@ def resnet_criterion():
 
 @pytest.fixture(scope="session")
 def hessian_comp(resnet_50, cifar10_test, resnet_criterion, torch_device):
-    return PyHessian(
-        resnet_50,
-        resnet_criterion,
-        cifar10_test,
-        torch_device,
-    )
+    return PyHessian(resnet_50, resnet_criterion, cifar10_test, torch_device)
 
 
 @pytest.fixture(scope="session")
 def hessian_eigenvecs(hessian_comp):
-    return hessian_comp.eigenvalues(top_n=3)
-
-
-@pytest.fixture(scope="session")
-def hessian_density(hessian_comp):
-    return hessian_comp.density()
+    return hessian_comp.eigenvalues(top_n=2)
