@@ -433,10 +433,10 @@ class PyHessian:
                 if i < len(alpha_list) - 1:
                     T[i + 1, i] = beta_list[i]
                     T[i, i + 1] = beta_list[i]
-            a_, b_ = torch.linalg.eig(T)
-
+            a_, b_ = torch.linalg.eigh(T)
             eigen_list = a_
-            weight_list = torch.pow(b_, 2)
+            weight_list = b_[0, :] ** 2 # torch.pow(b_, 2)
+
             eigen_list_full.append(list(eigen_list.cpu().numpy()))
             weight_list_full.append(list(weight_list.cpu().numpy()))
 
